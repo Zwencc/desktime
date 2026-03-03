@@ -1,0 +1,227 @@
+.workspace {
+  width: min(1120px, calc(100vw - 32px));
+  min-height: calc(100vh - 32px);
+  margin: 16px auto;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  grid-template-rows: 260px 1fr;
+  gap: 14px;
+}
+
+.clock-panel,
+.note-panel,
+.schedule-panel {
+  border: 1px solid rgba(30, 41, 59, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.clock-panel {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    linear-gradient(135deg, rgba(20, 184, 166, 0.16), rgba(255, 255, 255, 0.84)),
+    rgba(255, 255, 255, 0.9);
+}
+
+.note-panel {
+  grid-row: span 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px;
+}
+
+.schedule-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.panel-title strong {
+  margin-left: auto;
+  color: #0f766e;
+  font-size: 13px;
+}
+
+.time {
+  color: #0f172a;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 58px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.date {
+  color: #475569;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.clock-panel p,
+.schedule-item p,
+.meta-row {
+  color: #64748b;
+  font-size: 13px;
+}
+
+textarea,
+input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 7px;
+  background: rgba(248, 250, 252, 0.86);
+  color: #0f172a;
+  font: inherit;
+  outline: none;
+}
+
+textarea:focus,
+input:focus {
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
+}
+
+textarea {
+  flex: 1;
+  min-height: 380px;
+  margin-top: 14px;
+  padding: 14px;
+  resize: none;
+  line-height: 1.55;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  margin-top: 10px;
+}
+
+.schedule-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 150px 120px 40px;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.schedule-form input {
+  height: 40px;
+  padding: 0 11px;
+}
+
+button {
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+.add-button {
+  height: 40px;
+  background: #0f766e;
+  color: white;
+}
+
+.icon-button,
+.check-button {
+  width: 34px;
+  height: 34px;
+  color: #475569;
+  background: rgba(226, 232, 240, 0.72);
+}
+
+.check-button {
+  flex: 0 0 34px;
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.13);
+}
+
+.schedule-list {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 3px;
+}
+
+.schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.schedule-item div {
+  flex: 1;
+  min-width: 0;
+}
+
+.schedule-item h2 {
+  margin: 0 0 4px;
+  color: #172033;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.schedule-item p {
+  margin: 0;
+}
+
+.schedule-item.done h2,
+.schedule-item.done p {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+@media (max-width: 840px) {
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .note-panel {
+    grid-row: auto;
+  }
+
+  textarea {
+    min-height: 240px;
+  }
+
+  .schedule-form {
+    grid-template-columns: 1fr 1fr 72px 40px;
+  }
+}
