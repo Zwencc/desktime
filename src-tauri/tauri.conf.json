@@ -13,14 +13,15 @@
     "windows": [
       {
         "title": "DeskTime",
-        "width": 1120,
-        "height": 720,
+        "width": 410,
+        "height": 710,
         "minWidth": 360,
-        "minHeight": 520,
-        "resizable": true,
+        "minHeight": 580,
+        "resizable": false,
         "decorations": false,
         "transparent": true,
         "shadow": true,
+        "alwaysOnTop": true,
         "center": true
       }
     ],

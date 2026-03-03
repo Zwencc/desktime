@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Check,
   Clock3,
+  GripHorizontal,
   NotebookPen,
   Plus,
   Trash2,
@@ -20,6 +21,7 @@ type ScheduleItem = {
 
 const NOTE_KEY = 'desktime.note'
 const SCHEDULE_KEY = 'desktime.schedule'
+
 const beijingClock = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
   hour: '2-digit',
@@ -27,12 +29,12 @@ const beijingClock = new Intl.DateTimeFormat('zh-CN', {
   second: '2-digit',
   hour12: false,
 })
+
 const beijingDate = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
-  year: 'numeric',
   month: 'long',
   day: 'numeric',
-  weekday: 'long',
+  weekday: 'short',
 })
 
 const defaultItems: ScheduleItem[] = [
@@ -115,40 +117,41 @@ function App() {
   }
 
   return (
-    <main className="workspace">
-      <section className="clock-panel" aria-label="北京时间">
-        <div className="panel-title">
-          <Clock3 size={18} aria-hidden="true" />
+    <main className="widget-shell">
+      <header className="drag-bar" data-tauri-drag-region>
+        <GripHorizontal size={18} aria-hidden="true" />
+        <span>DeskTime</span>
+      </header>
+
+      <section className="clock-card" aria-label="北京时间">
+        <div className="section-title">
+          <Clock3 size={16} aria-hidden="true" />
           <span>北京时间</span>
         </div>
         <div className="time">{beijingClock.format(now)}</div>
         <div className="date">{beijingDate.format(now)}</div>
-        <p>按 Asia/Shanghai 时区计算，不跟随系统时区显示。</p>
       </section>
 
-      <section className="note-panel" aria-label="临时记事本">
-        <div className="panel-title">
-          <NotebookPen size={18} aria-hidden="true" />
-          <span>临时记事本</span>
+      <section className="note-card" aria-label="临时记事本">
+        <div className="section-title">
+          <NotebookPen size={16} aria-hidden="true" />
+          <span>临时记事</span>
+          <button className="icon-button" type="button" onClick={() => setNote('')} title="清空">
+            <Trash2 size={15} aria-hidden="true" />
+          </button>
         </div>
         <textarea
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="随手记下窗口、会议、灵感或待复制的片段..."
+          placeholder="随手记点什么..."
         />
-        <div className="meta-row">
-          <span>{note.length} 字符</span>
-          <button className="icon-button" type="button" onClick={() => setNote('')} title="清空记事本">
-            <Trash2 size={17} aria-hidden="true" />
-          </button>
-        </div>
       </section>
 
-      <section className="schedule-panel" aria-label="桌面日程">
-        <div className="panel-title">
-          <CalendarDays size={18} aria-hidden="true" />
-          <span>桌面日程</span>
-          <strong>{remaining} 未完成</strong>
+      <section className="schedule-card" aria-label="桌面日程">
+        <div className="section-title">
+          <CalendarDays size={16} aria-hidden="true" />
+          <span>日程</span>
+          <strong>{remaining}</strong>
         </div>
 
         <div className="schedule-form">
@@ -158,20 +161,21 @@ function App() {
             onKeyDown={(event) => {
               if (event.key === 'Enter') addItem()
             }}
-            placeholder="添加一个日程"
-          />
-          <input
-            type="date"
-            value={draftDate}
-            onChange={(event) => setDraftDate(event.target.value)}
+            placeholder="新日程"
           />
           <input
             type="time"
             value={draftTime}
             onChange={(event) => setDraftTime(event.target.value)}
           />
-          <button type="button" className="add-button" onClick={addItem} title="添加日程">
-            <Plus size={18} aria-hidden="true" />
+          <input
+            className="date-input"
+            type="date"
+            value={draftDate}
+            onChange={(event) => setDraftDate(event.target.value)}
+          />
+          <button type="button" className="add-button" onClick={addItem} title="添加">
+            <Plus size={17} aria-hidden="true" />
           </button>
         </div>
 
@@ -182,9 +186,9 @@ function App() {
                 className="check-button"
                 type="button"
                 onClick={() => toggleItem(item.id)}
-                title={item.done ? '标记为未完成' : '标记为完成'}
+                title={item.done ? '标记未完成' : '标记完成'}
               >
-                {item.done ? <Check size={16} aria-hidden="true" /> : <Bell size={15} aria-hidden="true" />}
+                {item.done ? <Check size={14} aria-hidden="true" /> : <Bell size={13} aria-hidden="true" />}
               </button>
               <div>
                 <h2>{item.title}</h2>
@@ -192,8 +196,8 @@ function App() {
                   {item.date} {item.time}
                 </p>
               </div>
-              <button className="icon-button" type="button" onClick={() => deleteItem(item.id)} title="删除日程">
-                <Trash2 size={16} aria-hidden="true" />
+              <button className="icon-button" type="button" onClick={() => deleteItem(item.id)} title="删除">
+                <Trash2 size={14} aria-hidden="true" />
               </button>
             </article>
           ))}
