@@ -25,4 +25,5 @@ dist-ssr
 *.sw?
 
 # Tauri
+src-tauri/gen
 src-tauri/target
