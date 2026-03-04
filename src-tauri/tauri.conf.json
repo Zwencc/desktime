@@ -12,17 +12,49 @@
   "app": {
     "windows": [
       {
-        "title": "DeskTime",
-        "width": 410,
-        "height": 710,
-        "minWidth": 360,
-        "minHeight": 580,
+        "label": "clock",
+        "title": "DeskTime Clock",
+        "url": "/?panel=clock",
+        "width": 296,
+        "height": 166,
+        "x": 80,
+        "y": 80,
         "resizable": false,
         "decorations": false,
         "transparent": true,
-        "shadow": true,
+        "shadow": false,
         "alwaysOnTop": true,
-        "center": true
+        "skipTaskbar": true
+      },
+      {
+        "label": "note",
+        "title": "DeskTime Note",
+        "url": "/?panel=note",
+        "width": 326,
+        "height": 266,
+        "x": 80,
+        "y": 270,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      },
+      {
+        "label": "schedule",
+        "title": "DeskTime Schedule",
+        "url": "/?panel=schedule",
+        "width": 376,
+        "height": 376,
+        "x": 430,
+        "y": 80,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
       }
     ],
     "security": {
