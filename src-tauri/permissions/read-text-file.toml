@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "read-text-file"
+description = "Allows DeskTime to read a text file the user picks in the native open dialog."
+commands.allow = ["read_text_file"]

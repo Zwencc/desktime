@@ -7,9 +7,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(platform::plugin())
         .invoke_handler(tauri::generate_handler![
             commands::file::save_text_file,
+            commands::file::read_text_file,
             commands::window::set_window_to_bottom,
             commands::window::set_window_visibility
         ])

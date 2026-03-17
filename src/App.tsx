@@ -1,31 +1,22 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Menu, type MenuOptions } from '@tauri-apps/api/menu'
 import { getCurrentWindow, PhysicalPosition, Window } from '@tauri-apps/api/window'
 import {
-  Bell,
   CalendarDays,
-  Check,
   Clock3,
   GripHorizontal,
   NotebookPen,
   Pin,
   PinOff,
-  Plus,
   Trash2,
 } from 'lucide-react'
+import { ClockPanel } from './ClockPanel'
 import { NoteEditor } from './NoteEditor'
+import { SchedulePanel } from './SchedulePanel'
 import './App.css'
-
-type ScheduleItem = {
-  id: string
-  title: string
-  date: string
-  time: string
-  done: boolean
-}
 
 type PanelKey = 'clock' | 'note' | 'schedule'
 
@@ -37,7 +28,6 @@ type SavedPosition = {
 type PanelState = Record<PanelKey, boolean>
 
 const NOTE_KEY = 'desktime.note'
-const SCHEDULE_KEY = 'desktime.schedule'
 const PINNED_KEY_PREFIX = 'desktime.pinned.'
 const VISIBLE_KEY_PREFIX = 'desktime.visible.'
 const WINDOW_POSITION_KEY_PREFIX = 'desktime.windowPosition.'
@@ -90,31 +80,6 @@ const nonDragSelector = [
 
 const editableContextSelector = 'input, textarea, select, [contenteditable="true"]'
 
-const defaultItems: ScheduleItem[] = [
-  {
-    id: 'daily-review',
-    title: text.todayReview,
-    date: new Date().toISOString().slice(0, 10),
-    time: '18:00',
-    done: false,
-  },
-]
-
-const beijingClock = new Intl.DateTimeFormat('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-})
-
-const beijingDate = new Intl.DateTimeFormat('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  month: 'long',
-  day: 'numeric',
-  weekday: 'short',
-})
-
 function readCurrentPanel(): PanelKey {
   const panel = new URLSearchParams(window.location.search).get('panel')
   return validPanels.has(panel as PanelKey) ? (panel as PanelKey) : 'clock'
@@ -126,15 +91,6 @@ function pinnedKey(panel: PanelKey) {
 
 function visibleKey(panel: PanelKey) {
   return `${VISIBLE_KEY_PREFIX}${panel}`
-}
-
-function readSchedule() {
-  try {
-    const value = localStorage.getItem(SCHEDULE_KEY)
-    return value ? (JSON.parse(value) as ScheduleItem[]) : defaultItems
-  } catch {
-    return defaultItems
-  }
 }
 
 function readSavedPosition(panel: PanelKey) {
@@ -225,23 +181,13 @@ function startWindowDrag(event: MouseEvent<HTMLElement>) {
 
 function App() {
   const panel = readCurrentPanel()
-  const [now, setNow] = useState(() => new Date())
   const [pinnedStates, setPinnedStates] = useState<PanelState>(readAllPinnedStates)
   const [visibleStates, setVisibleStates] = useState<PanelState>(readAllVisibleStates)
   const [note, setNote] = useState(() => localStorage.getItem(NOTE_KEY) ?? '')
-  const [items, setItems] = useState<ScheduleItem[]>(readSchedule)
-  const [draftTitle, setDraftTitle] = useState('')
-  const [draftDate, setDraftDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [draftTime, setDraftTime] = useState('09:00')
   const contextMenuOpen = useRef(false)
 
   const pinned = pinnedStates[panel]
   const visibleCount = Object.values(visibleStates).filter(Boolean).length
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
 
   useEffect(() => {
     function blockCtrlD(event: globalThis.KeyboardEvent) {
@@ -315,49 +261,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem(NOTE_KEY, note)
   }, [note])
-
-  useEffect(() => {
-    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(items))
-  }, [items])
-
-  const orderedItems = useMemo(
-    () =>
-      [...items].sort((a, b) =>
-        `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`),
-      ),
-    [items],
-  )
-
-  const remaining = items.filter((item) => !item.done).length
-
-  function addItem() {
-    const title = draftTitle.trim()
-    if (!title) return
-
-    setItems((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        title,
-        date: draftDate,
-        time: draftTime,
-        done: false,
-      },
-    ])
-    setDraftTitle('')
-  }
-
-  function toggleItem(id: string) {
-    setItems((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, done: !item.done } : item,
-      ),
-    )
-  }
-
-  function deleteItem(id: string) {
-    setItems((current) => current.filter((item) => item.id !== id))
-  }
 
   function setPanelPinned(targetPanel: PanelKey, nextPinned: boolean) {
     setPinnedStates((current) => ({
@@ -496,8 +399,7 @@ function App() {
           <span>{text.beijingTime}</span>
           {renderPinButton()}
         </div>
-        <div className="time">{beijingClock.format(now)}</div>
-        <div className="date">{beijingDate.format(now)}</div>
+        <ClockPanel />
       </section>,
     )
   }
@@ -533,58 +435,9 @@ function App() {
         <GripHorizontal size={16} aria-hidden="true" />
         <CalendarDays size={16} aria-hidden="true" />
         <span>{text.schedule}</span>
-        <strong>{remaining}</strong>
         {renderPinButton()}
       </div>
-
-      <div className="schedule-form" data-no-drag>
-        <input
-          value={draftTitle}
-          onChange={(event) => setDraftTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') addItem()
-          }}
-          placeholder={text.newSchedule}
-        />
-        <input
-          type="time"
-          value={draftTime}
-          onChange={(event) => setDraftTime(event.target.value)}
-        />
-        <input
-          className="date-input"
-          type="date"
-          value={draftDate}
-          onChange={(event) => setDraftDate(event.target.value)}
-        />
-        <button type="button" className="add-button" onClick={addItem} title={text.add}>
-          <Plus size={17} aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className="schedule-list" data-no-drag>
-        {orderedItems.map((item) => (
-          <article className={item.done ? 'schedule-item done' : 'schedule-item'} key={item.id}>
-            <button
-              className="check-button"
-              type="button"
-              onClick={() => toggleItem(item.id)}
-              title={item.done ? text.undone : text.done}
-            >
-              {item.done ? <Check size={14} aria-hidden="true" /> : <Bell size={13} aria-hidden="true" />}
-            </button>
-            <div>
-              <h2>{item.title}</h2>
-              <p>
-                {item.date} {item.time}
-              </p>
-            </div>
-            <button className="icon-button" type="button" onClick={() => deleteItem(item.id)} title={text.delete}>
-              <Trash2 size={14} aria-hidden="true" />
-            </button>
-          </article>
-        ))}
-      </div>
+      <SchedulePanel />
     </section>,
   )
 }

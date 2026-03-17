@@ -13,3 +13,13 @@ fn save_text_file_inner(path: String, contents: String) -> BackendResult<()> {
     std::fs::write(PathBuf::from(path), contents)?;
     Ok(())
 }
+
+/// Reads a text file the user picked through the native open dialog.
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    read_text_file_inner(path).map_err(|error| error.to_string())
+}
+
+fn read_text_file_inner(path: String) -> BackendResult<String> {
+    Ok(std::fs::read_to_string(PathBuf::from(path))?)
+}

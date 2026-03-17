@@ -11,15 +11,20 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { invoke } from '@tauri-apps/api/core'
-import { save } from '@tauri-apps/plugin-dialog'
+import { open, save } from '@tauri-apps/plugin-dialog'
 import {
   Bold,
+  Eye,
+  FolderOpen,
   Heading1,
   Italic,
   List,
   ListTodo,
+  PenLine,
   Save,
 } from 'lucide-react'
+import { isTauri } from './env'
+import { renderMarkdown } from './markdown'
 
 const text = {
   bold: '加粗',
@@ -27,16 +32,17 @@ const text = {
   heading: '标题',
   bullet: '无序列表',
   checklist: '待办项',
+  importFile: '导入文件',
+  preview: '预览',
+  edit: '编辑',
   saveFile: '导出为文件',
   autoSaved: '自动保存',
   saving: '导出中…',
   exported: '已导出',
   failed: '导出失败',
+  overwrite: '导入会覆盖当前记事内容，确定继续吗？',
   chars: '字',
 }
-
-const isTauri =
-  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 const savedTimeFormat = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
@@ -121,7 +127,25 @@ function prefixLines(view: EditorView, prefix: string) {
   view.focus()
 }
 
+// Insert a pasted image as an inline base64 data URI so it travels with the note.
+function insertPastedImage(view: EditorView, file: File) {
+  const reader = new FileReader()
+  reader.onload = () => {
+    const url = typeof reader.result === 'string' ? reader.result : ''
+    if (!url) return
+    const snippet = `\n![image](${url})\n`
+    const pos = view.state.selection.main.head
+    view.dispatch({
+      changes: { from: pos, insert: snippet },
+      selection: { anchor: pos + snippet.length },
+      userEvent: 'input',
+    })
+  }
+  reader.readAsDataURL(file)
+}
+
 const suggestedFileName = 'desktime-note.md'
+const importExtensions = ['md', 'markdown', 'txt']
 
 async function exportToFile(contents: string) {
   if (isTauri) {
@@ -148,6 +172,36 @@ async function exportToFile(contents: string) {
   return true
 }
 
+async function importFromFile(): Promise<string | null> {
+  if (isTauri) {
+    const selected = await open({
+      multiple: false,
+      filters: [{ name: 'Markdown / Text', extensions: importExtensions }],
+    })
+    if (typeof selected !== 'string') return null
+    return await invoke<string>('read_text_file', { path: selected })
+  }
+
+  // Web prototype fallback: a hidden file input.
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.md,.markdown,.txt,text/*'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (!file) {
+        resolve(null)
+        return
+      }
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsText(file)
+    }
+    input.click()
+  })
+}
+
 type SaveStatus =
   | { kind: 'idle' }
   | { kind: 'saving' }
@@ -171,6 +225,7 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
 
   const [charCount, setCharCount] = useState(value.length)
   const [status, setStatus] = useState<SaveStatus>({ kind: 'idle' })
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit')
 
   onChangeRef.current = onChange
 
@@ -191,6 +246,21 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
   }, [value])
 
   saveRef.current = handleSave
+
+  const handleImport = useCallback(() => {
+    void (async () => {
+      try {
+        const content = await importFromFile()
+        if (content == null) return
+        if (value.trim() && !window.confirm(text.overwrite)) return
+        onChangeRef.current(content)
+        setStatus({ kind: 'idle' })
+      } catch (error) {
+        console.error('Failed to import note', error)
+        setStatus({ kind: 'error' })
+      }
+    })()
+  }, [value])
 
   // Create the editor once; React state stays the persistence source of truth.
   useEffect(() => {
@@ -215,6 +285,16 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
             ...defaultKeymap,
             ...historyKeymap,
           ]),
+          EditorView.domEventHandlers({
+            paste(event, target) {
+              const files = event.clipboardData?.files
+              const image = files && Array.from(files).find((file) => file.type.startsWith('image/'))
+              if (!image) return false
+              event.preventDefault()
+              insertPastedImage(target, image)
+              return true
+            },
+          }),
           EditorView.updateListener.of((update) => {
             if (!update.docChanged) return
             onChangeRef.current(update.state.doc.toString())
@@ -233,11 +313,9 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
       view.destroy()
       viewRef.current = null
     }
-    // Editor is created once; external value changes are reconciled below.
-
   }, [])
 
-  // Reconcile external changes (clear button, cross-window storage sync).
+  // Reconcile external changes (import, clear button, cross-window storage sync).
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
@@ -259,50 +337,75 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
   return (
     <div className="note-editor" data-no-drag>
       <div className="note-toolbar">
+        {mode === 'edit' && (
+          <>
+            <button
+              type="button"
+              className="format-button"
+              title={text.bold}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => viewRef.current && wrapSelection(viewRef.current, '**')}
+            >
+              <Bold size={14} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="format-button"
+              title={text.italic}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => viewRef.current && wrapSelection(viewRef.current, '*')}
+            >
+              <Italic size={14} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="format-button"
+              title={text.heading}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => viewRef.current && prefixLines(viewRef.current, '# ')}
+            >
+              <Heading1 size={15} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="format-button"
+              title={text.bullet}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => viewRef.current && prefixLines(viewRef.current, '- ')}
+            >
+              <List size={15} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="format-button"
+              title={text.checklist}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => viewRef.current && prefixLines(viewRef.current, '- [ ] ')}
+            >
+              <ListTodo size={15} aria-hidden="true" />
+            </button>
+          </>
+        )}
+
+        <div className="toolbar-spacer" />
+
         <button
           type="button"
           className="format-button"
-          title={text.bold}
+          title={text.importFile}
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => viewRef.current && wrapSelection(viewRef.current, '**')}
+          onClick={handleImport}
         >
-          <Bold size={14} aria-hidden="true" />
+          <FolderOpen size={14} aria-hidden="true" />
         </button>
         <button
           type="button"
-          className="format-button"
-          title={text.italic}
+          className={mode === 'preview' ? 'format-button active' : 'format-button'}
+          title={mode === 'preview' ? text.edit : text.preview}
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => viewRef.current && wrapSelection(viewRef.current, '*')}
+          onClick={() => setMode((current) => (current === 'preview' ? 'edit' : 'preview'))}
         >
-          <Italic size={14} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="format-button"
-          title={text.heading}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => viewRef.current && prefixLines(viewRef.current, '# ')}
-        >
-          <Heading1 size={15} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="format-button"
-          title={text.bullet}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => viewRef.current && prefixLines(viewRef.current, '- ')}
-        >
-          <List size={15} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="format-button"
-          title={text.checklist}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => viewRef.current && prefixLines(viewRef.current, '- [ ] ')}
-        >
-          <ListTodo size={15} aria-hidden="true" />
+          {mode === 'preview' ? <PenLine size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
         </button>
         <button
           type="button"
@@ -316,7 +419,18 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
         </button>
       </div>
 
-      <div className="note-surface" ref={hostRef} />
+      <div
+        className="note-surface"
+        ref={hostRef}
+        style={mode === 'preview' ? { display: 'none' } : undefined}
+      />
+      {mode === 'preview' && (
+        <div
+          className="note-preview"
+          // Sanitized in renderMarkdown (DOMPurify); only inline base64 images pass through.
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }}
+        />
+      )}
 
       <div className="note-footer">
         <span>

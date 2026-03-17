@@ -154,8 +154,16 @@ textarea {
   cursor: default;
 }
 
+.format-button.active {
+  color: white;
+  background: #2563eb;
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
 .save-note-button {
-  margin-left: auto;
   color: white;
   background: #2563eb;
 }
@@ -198,17 +206,154 @@ textarea {
   color: #dc2626;
 }
 
+.note-preview {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 8px 11px;
+  color: #1e293b;
+  font-size: 14px;
+  line-height: 1.55;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.note-preview::-webkit-scrollbar {
+  width: 7px;
+}
+
+.note-preview::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.42);
+}
+
+.note-preview > :first-child {
+  margin-top: 0;
+}
+
+.note-preview h1,
+.note-preview h2,
+.note-preview h3,
+.note-preview h4 {
+  margin: 10px 0 6px;
+  color: #1e3a8a;
+  line-height: 1.25;
+}
+
+.note-preview h1 {
+  font-size: 19px;
+}
+
+.note-preview h2 {
+  font-size: 17px;
+}
+
+.note-preview h3 {
+  font-size: 15px;
+}
+
+.note-preview p {
+  margin: 6px 0;
+}
+
+.note-preview ul,
+.note-preview ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.note-preview li {
+  margin: 2px 0;
+}
+
+.note-preview a {
+  color: #2563eb;
+}
+
+.note-preview code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.12);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+.note-preview pre {
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.06);
+  overflow: auto;
+}
+
+.note-preview pre code {
+  padding: 0;
+  background: none;
+}
+
+.note-preview blockquote {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 3px solid rgba(59, 130, 246, 0.4);
+  color: #475569;
+}
+
+.note-preview img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.note-preview table {
+  border-collapse: collapse;
+  margin: 6px 0;
+}
+
+.note-preview th,
+.note-preview td {
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 3px 6px;
+}
+
+.note-preview hr {
+  border: none;
+  border-top: 1px solid rgba(59, 130, 246, 0.3);
+  margin: 10px 0;
+}
+
 .schedule-form {
-  display: grid;
-  grid-template-columns: 1fr 76px 38px;
+  display: flex;
+  flex-direction: column;
   gap: 7px;
   margin: 8px 0 10px;
 }
 
-.schedule-form input {
+.form-row {
+  display: flex;
+  gap: 7px;
+}
+
+.form-row > input:first-child {
+  flex: 1;
+}
+
+.schedule-form input,
+.schedule-form select {
   height: 36px;
   padding: 0 9px;
   font-size: 13px;
+}
+
+.schedule-form select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #0f172a;
+  outline: none;
 }
 
 .date-input {
@@ -244,6 +389,7 @@ button {
 }
 
 .schedule-list {
+  flex: 1;
   min-height: 0;
   overflow: auto;
   display: flex;
@@ -296,4 +442,156 @@ button {
 .schedule-item.done p {
   color: #94a3b8;
   text-decoration: line-through;
+}
+
+/* Clock: lunar line + pomodoro */
+.lunar-line {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 650;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.lunar-date {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lunar-tag {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.24);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pomodoro-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #1e3a8a;
+}
+
+.pomodoro-time {
+  min-width: 46px;
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 780;
+  color: #0f172a;
+}
+
+.icon-button.active {
+  color: white;
+  background: #2563eb;
+}
+
+/* Schedule: view tabs, tag filter, item meta, footer */
+.schedule-controls {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(219, 234, 254, 0.6);
+}
+
+.view-tab {
+  padding: 3px 10px;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.view-tab.active {
+  color: white;
+  background: #2563eb;
+}
+
+.tag-filter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tag-dot {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: #cbd5e1;
+  opacity: 0.55;
+}
+
+.tag-dot.all {
+  background: linear-gradient(135deg, #2563eb, #16a34a, #dc2626, #7c3aed);
+}
+
+.tag-dot.active {
+  opacity: 1;
+  border-color: rgba(15, 23, 42, 0.45);
+}
+
+.item-tag {
+  flex: 0 0 auto;
+  width: 8px;
+  align-self: stretch;
+  border-radius: 999px;
+}
+
+.item-repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  color: #2563eb;
+}
+
+.item-repeat svg {
+  vertical-align: -1px;
+}
+
+.item-overdue {
+  margin-left: 6px;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.schedule-item.overdue {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(254, 226, 226, 0.5);
+}
+
+.schedule-empty {
+  margin: 16px 0;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.schedule-footer {
+  flex: 0 0 auto;
+  padding-top: 8px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: right;
+  user-select: none;
 }

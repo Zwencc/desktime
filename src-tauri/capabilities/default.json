@@ -14,8 +14,11 @@
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-always-on-bottom",
     "dialog:allow-save",
+    "dialog:allow-open",
+    "notification:default",
     "set-window-to-bottom",
     "set-window-visibility",
-    "save-text-file"
+    "save-text-file",
+    "read-text-file"
   ]
 }
