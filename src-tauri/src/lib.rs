@@ -1,6 +1,7 @@
 mod commands;
 mod error;
 mod platform;
+mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -9,6 +10,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(platform::plugin())
+        .setup(|app| {
+            tray::build(app.handle())?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::file::save_text_file,
             commands::file::read_text_file,
