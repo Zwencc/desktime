@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
+import { NoteEditor } from './NoteEditor'
 import './App.css'
 
 type ScheduleItem = {
@@ -517,11 +518,7 @@ function App() {
             <Trash2 size={15} aria-hidden="true" />
           </button>
         </div>
-        <textarea
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          placeholder={text.notePlaceholder}
-        />
+        <NoteEditor value={note} onChange={setNote} placeholder={text.notePlaceholder} />
       </section>,
     )
   }

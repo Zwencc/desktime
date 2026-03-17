@@ -6,6 +6,7 @@ pub enum BackendError {
     #[cfg(not(windows))]
     UnsupportedPlatform(&'static str),
     StatePoisoned(&'static str),
+    Io(std::io::Error),
     Tauri(tauri::Error),
     #[cfg(windows)]
     Windows(windows::core::Error),
@@ -20,6 +21,7 @@ impl Display for BackendError {
                 write!(formatter, "{feature} is not supported on this platform")
             }
             Self::StatePoisoned(state) => write!(formatter, "{state} state lock is poisoned"),
+            Self::Io(error) => Display::fmt(error, formatter),
             Self::Tauri(error) => Display::fmt(error, formatter),
             #[cfg(windows)]
             Self::Windows(error) => Display::fmt(error, formatter),
@@ -28,6 +30,12 @@ impl Display for BackendError {
 }
 
 impl std::error::Error for BackendError {}
+
+impl From<std::io::Error> for BackendError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
+}
 
 impl From<tauri::Error> for BackendError {
     fn from(error: tauri::Error) -> Self {

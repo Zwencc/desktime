@@ -5,7 +5,7 @@ DeskTime is a Windows desktop companion prototype built with React, Vite, and Ta
 ## Features
 
 - Beijing time display using the `Asia/Shanghai` time zone instead of the current system time zone.
-- Temporary desktop notepad with automatic local persistence.
+- Markdown notepad (CodeMirror) with syntax highlighting, a formatting toolbar, automatic local persistence, and export to a `.md`/`.txt` file.
 - Local schedule list with date, time, completion state, and deletion.
 - Tauri desktop shell configured for a transparent, borderless WebView2 window.
 

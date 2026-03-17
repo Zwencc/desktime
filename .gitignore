@@ -27,3 +27,14 @@ dist-ssr
 # Tauri
 src-tauri/gen
 src-tauri/target
+
+# Stray tools / temp
+.tmp_dbeaver_ascii/
+
+# Personal / non-project agent notes (keep local, never commit)
+CLAUDE.md
+Agent.md
+.claude/
+
+# Design docs, dev notes, planning — local only
+docs/
