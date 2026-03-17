@@ -3,7 +3,7 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Menu, type MenuOptions } from '@tauri-apps/api/menu'
-import { getCurrentWindow, PhysicalPosition, Window } from '@tauri-apps/api/window'
+import { getCurrentWindow, PhysicalPosition, PhysicalSize, Window } from '@tauri-apps/api/window'
 import {
   CalendarDays,
   Clock3,
@@ -25,12 +25,18 @@ type SavedPosition = {
   y: number
 }
 
+type SavedSize = {
+  width: number
+  height: number
+}
+
 type PanelState = Record<PanelKey, boolean>
 
 const NOTE_KEY = 'desktime.note'
 const PINNED_KEY_PREFIX = 'desktime.pinned.'
 const VISIBLE_KEY_PREFIX = 'desktime.visible.'
 const WINDOW_POSITION_KEY_PREFIX = 'desktime.windowPosition.'
+const WINDOW_SIZE_KEY_PREFIX = 'desktime.windowSize.'
 
 const text = {
   add: '\u6dfb\u52a0',
@@ -45,6 +51,7 @@ const text = {
   notePlaceholder: '\u968f\u624b\u8bb0\u70b9\u4ec0\u4e48...',
   pin: '\u9489\u5728\u4e0a\u5c42',
   pinTop: '\u9489\u5728\u6700\u4e0a\u5c42',
+  resize: '\u62d6\u62fd\u8c03\u6574\u5927\u5c0f',
   schedule: '\u65e5\u7a0b',
   schedulePanel: '\u684c\u9762\u65e5\u7a0b',
   show: '\u663e\u793a',
@@ -104,6 +111,19 @@ function readSavedPosition(panel: PanelKey) {
 
 function saveWindowPosition(panel: PanelKey, position: SavedPosition) {
   localStorage.setItem(`${WINDOW_POSITION_KEY_PREFIX}${panel}`, JSON.stringify(position))
+}
+
+function readSavedSize(panel: PanelKey): SavedSize | null {
+  try {
+    const value = localStorage.getItem(`${WINDOW_SIZE_KEY_PREFIX}${panel}`)
+    return value ? (JSON.parse(value) as SavedSize) : null
+  } catch {
+    return null
+  }
+}
+
+function saveWindowSize(panel: PanelKey, size: SavedSize) {
+  localStorage.setItem(`${WINDOW_SIZE_KEY_PREFIX}${panel}`, JSON.stringify(size))
 }
 
 function readPinnedState(panel: PanelKey) {
@@ -179,6 +199,14 @@ function startWindowDrag(event: MouseEvent<HTMLElement>) {
   void getCurrentWindow().startDragging()
 }
 
+function startWindowResize(event: MouseEvent<HTMLElement>) {
+  if (event.button !== 0) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  void getCurrentWindow().startResizeDragging('SouthEast')
+}
+
 function App() {
   const panel = readCurrentPanel()
   const [pinnedStates, setPinnedStates] = useState<PanelState>(readAllPinnedStates)
@@ -241,20 +269,30 @@ function App() {
   useEffect(() => {
     const appWindow = getCurrentWindow()
     const savedPosition = readSavedPosition(panel)
-    let unlisten: (() => void) | undefined
+    const savedSize = readSavedSize(panel)
+    const cleanups: Array<() => void> = []
 
     if (savedPosition) {
       void appWindow.setPosition(new PhysicalPosition(savedPosition.x, savedPosition.y))
+    }
+    if (savedSize) {
+      void appWindow.setSize(new PhysicalSize(savedSize.width, savedSize.height))
     }
 
     void appWindow.onMoved(({ payload }) => {
       saveWindowPosition(panel, { x: payload.x, y: payload.y })
     }).then((cleanup) => {
-      unlisten = cleanup
+      cleanups.push(cleanup)
+    })
+
+    void appWindow.onResized(({ payload }) => {
+      saveWindowSize(panel, { width: payload.width, height: payload.height })
+    }).then((cleanup) => {
+      cleanups.push(cleanup)
     })
 
     return () => {
-      unlisten?.()
+      cleanups.forEach((cleanup) => cleanup())
     }
   }, [panel])
 
@@ -382,6 +420,12 @@ function App() {
         }}
       >
         {children}
+        <div
+          className="resize-grip"
+          data-no-drag
+          title={text.resize}
+          onMouseDown={startWindowResize}
+        />
       </main>
     )
   }
