@@ -21,7 +21,7 @@
         "minHeight": 170,
         "x": 80,
         "y": 80,
-        "resizable": true,
+        "resizable": false,
         "decorations": false,
         "transparent": true,
         "shadow": false,

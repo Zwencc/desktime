@@ -215,6 +215,7 @@ function App() {
   const contextMenuOpen = useRef(false)
 
   const pinned = pinnedStates[panel]
+  const canResize = panel !== 'clock'
   const visibleCount = Object.values(visibleStates).filter(Boolean).length
 
   useEffect(() => {
@@ -275,7 +276,7 @@ function App() {
     if (savedPosition) {
       void appWindow.setPosition(new PhysicalPosition(savedPosition.x, savedPosition.y))
     }
-    if (savedSize) {
+    if (savedSize && canResize) {
       void appWindow.setSize(new PhysicalSize(savedSize.width, savedSize.height))
     }
 
@@ -294,7 +295,7 @@ function App() {
     return () => {
       cleanups.forEach((cleanup) => cleanup())
     }
-  }, [panel])
+  }, [panel, canResize])
 
   useEffect(() => {
     localStorage.setItem(NOTE_KEY, note)
@@ -420,12 +421,14 @@ function App() {
         }}
       >
         {children}
-        <div
-          className="resize-grip"
-          data-no-drag
-          title={text.resize}
-          onMouseDown={startWindowResize}
-        />
+        {canResize && (
+          <div
+            className="resize-grip"
+            data-no-drag
+            title={text.resize}
+            onMouseDown={startWindowResize}
+          />
+        )}
       </main>
     )
   }
