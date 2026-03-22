@@ -2,7 +2,6 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { Menu, type MenuOptions } from '@tauri-apps/api/menu'
 import { getCurrentWindow, PhysicalPosition, PhysicalSize, Window } from '@tauri-apps/api/window'
 import {
   CalendarDays,
@@ -16,27 +15,29 @@ import {
 import { ClockPanel } from './ClockPanel'
 import { NoteEditor } from './NoteEditor'
 import { SchedulePanel } from './SchedulePanel'
+import {
+  type MenuAction,
+  type PanelKey,
+  MENU_ACTION_KEY,
+  defaultPositions,
+  panels,
+  pinnedKey,
+  readAllPinnedStates,
+  readAllVisibleStates,
+  readSavedPosition,
+  readSavedSize,
+  requestContextMenu,
+  savePinnedState,
+  saveVisibleState,
+  saveWindowPosition,
+  saveWindowSize,
+  visibleKey,
+} from './panels'
 import './App.css'
-
-type PanelKey = 'clock' | 'note' | 'schedule'
-
-type SavedPosition = {
-  x: number
-  y: number
-}
-
-type SavedSize = {
-  width: number
-  height: number
-}
 
 type PanelState = Record<PanelKey, boolean>
 
 const NOTE_KEY = 'desktime.note'
-const PINNED_KEY_PREFIX = 'desktime.pinned.'
-const VISIBLE_KEY_PREFIX = 'desktime.visible.'
-const WINDOW_POSITION_KEY_PREFIX = 'desktime.windowPosition.'
-const WINDOW_SIZE_KEY_PREFIX = 'desktime.windowSize.'
 
 const text = {
   add: '\u6dfb\u52a0',
@@ -60,20 +61,15 @@ const text = {
   undone: '\u6807\u8bb0\u672a\u5b8c\u6210',
 }
 
-const panels: PanelKey[] = ['clock', 'note', 'schedule']
-const panelNames: Record<PanelKey, string> = {
-  clock: text.beijingTime,
-  note: text.note,
-  schedule: text.schedule,
-}
-
-const defaultPositions: Record<PanelKey, SavedPosition> = {
-  clock: { x: 80, y: 80 },
-  note: { x: 80, y: 270 },
-  schedule: { x: 430, y: 80 },
-}
-
 const validPanels = new Set<PanelKey>(panels)
+
+// Monotonic-per-launch nonce so repeated right-clicks at the same spot still
+// change the stored request value and fire the cross-window storage event.
+let menuNonce = Date.now()
+function nextMenuNonce() {
+  menuNonce += 1
+  return menuNonce
+}
 
 const nonDragSelector = [
   'button',
@@ -90,75 +86,6 @@ const editableContextSelector = 'input, textarea, select, [contenteditable="true
 function readCurrentPanel(): PanelKey {
   const panel = new URLSearchParams(window.location.search).get('panel')
   return validPanels.has(panel as PanelKey) ? (panel as PanelKey) : 'clock'
-}
-
-function pinnedKey(panel: PanelKey) {
-  return `${PINNED_KEY_PREFIX}${panel}`
-}
-
-function visibleKey(panel: PanelKey) {
-  return `${VISIBLE_KEY_PREFIX}${panel}`
-}
-
-function readSavedPosition(panel: PanelKey) {
-  try {
-    const value = localStorage.getItem(`${WINDOW_POSITION_KEY_PREFIX}${panel}`)
-    return value ? (JSON.parse(value) as SavedPosition) : null
-  } catch {
-    return null
-  }
-}
-
-function saveWindowPosition(panel: PanelKey, position: SavedPosition) {
-  localStorage.setItem(`${WINDOW_POSITION_KEY_PREFIX}${panel}`, JSON.stringify(position))
-}
-
-function readSavedSize(panel: PanelKey): SavedSize | null {
-  try {
-    const value = localStorage.getItem(`${WINDOW_SIZE_KEY_PREFIX}${panel}`)
-    return value ? (JSON.parse(value) as SavedSize) : null
-  } catch {
-    return null
-  }
-}
-
-function saveWindowSize(panel: PanelKey, size: SavedSize) {
-  localStorage.setItem(`${WINDOW_SIZE_KEY_PREFIX}${panel}`, JSON.stringify(size))
-}
-
-function readPinnedState(panel: PanelKey) {
-  const panelValue = localStorage.getItem(pinnedKey(panel))
-  const legacyValue = localStorage.getItem('desktime.pinned')
-
-  return (panelValue ?? legacyValue) !== 'false'
-}
-
-function readVisibleState(panel: PanelKey) {
-  return localStorage.getItem(visibleKey(panel)) !== 'false'
-}
-
-function readAllPinnedStates(): PanelState {
-  return {
-    clock: readPinnedState('clock'),
-    note: readPinnedState('note'),
-    schedule: readPinnedState('schedule'),
-  }
-}
-
-function readAllVisibleStates(): PanelState {
-  return {
-    clock: readVisibleState('clock'),
-    note: readVisibleState('note'),
-    schedule: readVisibleState('schedule'),
-  }
-}
-
-function savePinnedState(panel: PanelKey, pinned: boolean) {
-  localStorage.setItem(pinnedKey(panel), String(pinned))
-}
-
-function saveVisibleState(panel: PanelKey, visible: boolean) {
-  localStorage.setItem(visibleKey(panel), String(visible))
 }
 
 async function getPanelWindow(panel: PanelKey) {
@@ -212,7 +139,7 @@ function App() {
   const [pinnedStates, setPinnedStates] = useState<PanelState>(readAllPinnedStates)
   const [visibleStates, setVisibleStates] = useState<PanelState>(readAllVisibleStates)
   const [note, setNote] = useState(() => localStorage.getItem(NOTE_KEY) ?? '')
-  const contextMenuOpen = useRef(false)
+  const menuActionRef = useRef<(action: MenuAction) => void>(() => {})
 
   const pinned = pinnedStates[panel]
   const canResize = panel !== 'clock'
@@ -301,6 +228,21 @@ function App() {
     localStorage.setItem(NOTE_KEY, note)
   }, [note])
 
+  useEffect(() => {
+    function onMenuAction(event: StorageEvent) {
+      if (event.key !== MENU_ACTION_KEY || !event.newValue) return
+
+      try {
+        menuActionRef.current(JSON.parse(event.newValue) as MenuAction)
+      } catch {
+        // ignore malformed menu actions
+      }
+    }
+
+    window.addEventListener('storage', onMenuAction)
+    return () => window.removeEventListener('storage', onMenuAction)
+  }, [])
+
   function setPanelPinned(targetPanel: PanelKey, nextPinned: boolean) {
     setPinnedStates((current) => ({
       ...current,
@@ -325,67 +267,22 @@ function App() {
     setPanelPinned(panel, !pinnedStates[panel])
   }
 
-  async function showContextMenu(event: MouseEvent<HTMLElement>) {
+  function showContextMenu(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement | null
     if (target?.closest(editableContextSelector)) return
 
     event.preventDefault()
     event.stopPropagation()
-    if (contextMenuOpen.current) return
-    contextMenuOpen.current = true
 
-    const items: NonNullable<MenuOptions['items']> = []
-
-    panels.forEach((targetPanel, index) => {
-      const hideDisabled = visibleStates[targetPanel] && visibleCount <= 1
-
-      items.push(
-        {
-          id: `panel-title-${targetPanel}`,
-          text: panelNames[targetPanel],
-          enabled: false,
-        },
-        {
-          id: `pin-${targetPanel}`,
-          text: text.pin,
-          checked: pinnedStates[targetPanel],
-          action: () => setPanelPinned(targetPanel, !pinnedStates[targetPanel]),
-        },
-        {
-          id: `visible-${targetPanel}`,
-          text: text.show,
-          checked: visibleStates[targetPanel],
-          enabled: !hideDisabled,
-          action: () => setPanelVisible(targetPanel, !visibleStates[targetPanel]),
-        },
-      )
-
-      if (index < panels.length - 1) items.push({ item: 'Separator' })
+    // Use the event's screen coordinates (no IPC round-trip) and convert CSS to
+    // physical pixels so the menu window can position itself at the cursor.
+    const scale = window.devicePixelRatio || 1
+    requestContextMenu({
+      x: Math.round(event.screenX * scale),
+      y: Math.round(event.screenY * scale),
+      panel,
+      nonce: nextMenuNonce(),
     })
-
-    items.push(
-      { item: 'Separator' },
-      {
-        id: `reset-position-${panel}`,
-        text: text.currentWindowReset,
-        action: resetCurrentPosition,
-      },
-    )
-
-    let contextMenu: Menu | null = null
-    try {
-      contextMenu = await Menu.new({ items })
-      await contextMenu.popup(undefined, getCurrentWindow())
-    } catch (error) {
-      console.error('Failed to show native context menu', error)
-    } finally {
-      if (contextMenu) {
-        await contextMenu.close().catch((error) => {
-          console.error('Failed to release native context menu', error)
-        })
-      }
-      contextMenuOpen.current = false
-    }
   }
 
   function resetCurrentPosition() {
@@ -393,6 +290,14 @@ function App() {
 
     saveWindowPosition(panel, position)
     void getCurrentWindow().setPosition(new PhysicalPosition(position.x, position.y))
+  }
+
+  menuActionRef.current = (action: MenuAction) => {
+    if (action.origin !== panel) return
+
+    if (action.type === 'pin') setPanelPinned(action.target, action.value)
+    else if (action.type === 'visible') setPanelVisible(action.target, action.value)
+    else resetCurrentPosition()
   }
 
   function renderPinButton() {
@@ -438,9 +343,8 @@ function App() {
       <section
         className="floating-panel clock-panel"
         aria-label={text.beijingTime}
-        onMouseDown={startWindowDrag}
       >
-        <div className="panel-handle">
+        <div className="panel-handle" onMouseDown={startWindowDrag}>
           <GripHorizontal size={16} aria-hidden="true" />
           <Clock3 size={16} aria-hidden="true" />
           <span>{text.beijingTime}</span>
@@ -456,9 +360,8 @@ function App() {
       <section
         className="floating-panel note-panel"
         aria-label={text.noteBook}
-        onMouseDown={startWindowDrag}
       >
-        <div className="panel-handle">
+        <div className="panel-handle" onMouseDown={startWindowDrag}>
           <GripHorizontal size={16} aria-hidden="true" />
           <NotebookPen size={16} aria-hidden="true" />
           <span>{text.note}</span>
@@ -476,9 +379,8 @@ function App() {
     <section
       className="floating-panel schedule-panel"
       aria-label={text.schedulePanel}
-      onMouseDown={startWindowDrag}
     >
-      <div className="panel-handle">
+      <div className="panel-handle" onMouseDown={startWindowDrag}>
         <GripHorizontal size={16} aria-hidden="true" />
         <CalendarDays size={16} aria-hidden="true" />
         <span>{text.schedule}</span>

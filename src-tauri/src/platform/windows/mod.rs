@@ -42,15 +42,19 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             }
 
             let window = webview.window();
-            if let Err(error) = webview
-                .state::<WindowsPlatformState>()
-                .register_window(&window)
-            {
-                report_error(
-                    "failed to register native window messages",
-                    window.label(),
-                    &error,
-                );
+            // The context-menu window is app-driven show/hide; keep it out of the
+            // visibility policy so it can pop up and dismiss freely.
+            if window.label() != "menu" {
+                if let Err(error) = webview
+                    .state::<WindowsPlatformState>()
+                    .register_window(&window)
+                {
+                    report_error(
+                        "failed to register native window messages",
+                        window.label(),
+                        &error,
+                    );
+                }
             }
         })
         .on_drop(|app| {

@@ -5,7 +5,8 @@
   "windows": [
     "clock",
     "note",
-    "schedule"
+    "schedule",
+    "menu"
   ],
   "permissions": [
     "core:default",
@@ -15,6 +16,11 @@
     "core:window:allow-set-size",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-always-on-bottom",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-monitor-from-point",
+    "core:window:allow-set-ignore-cursor-events",
     "dialog:allow-save",
     "dialog:allow-open",
     "notification:default",
