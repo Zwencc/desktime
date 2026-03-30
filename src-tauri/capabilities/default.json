@@ -6,7 +6,9 @@
     "clock",
     "note",
     "schedule",
-    "menu"
+    "menu",
+    "reminder",
+    "settings"
   ],
   "permissions": [
     "core:default",
@@ -20,13 +22,28 @@
     "core:window:allow-hide",
     "core:window:allow-set-focus",
     "core:window:allow-monitor-from-point",
+    "core:window:allow-current-monitor",
+    "core:window:allow-primary-monitor",
     "core:window:allow-set-ignore-cursor-events",
+    "core:app:allow-version",
     "dialog:allow-save",
     "dialog:allow-open",
     "notification:default",
     "set-window-to-bottom",
     "set-window-visibility",
     "save-text-file",
-    "read-text-file"
+    "read-text-file",
+    "sync-reminders",
+    "sync-notices",
+    "stop-reminder",
+    "snooze-reminder",
+    "rename-path",
+    "move-to-recycle-bin",
+    "file-stat",
+    "open-in-explorer",
+    "drafts-directory",
+    "draft-read",
+    "draft-write",
+    "draft-delete"
   ]
 }

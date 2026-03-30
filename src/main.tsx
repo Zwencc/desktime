@@ -3,9 +3,17 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ContextMenuWindow } from './ContextMenuWindow.tsx'
+import { ReminderWindow } from './ReminderWindow.tsx'
+import { SettingsWindow } from './SettingsWindow.tsx'
 
-const isMenuWindow = new URLSearchParams(window.location.search).get('panel') === 'menu'
+// Every window loads the same bundle and picks its view from `?panel=`.
+const panel = new URLSearchParams(window.location.search).get('panel')
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>{isMenuWindow ? <ContextMenuWindow /> : <App />}</StrictMode>,
-)
+function root() {
+  if (panel === 'menu') return <ContextMenuWindow />
+  if (panel === 'reminder') return <ReminderWindow />
+  if (panel === 'settings') return <SettingsWindow />
+  return <App />
+}
+
+createRoot(document.getElementById('root')!).render(<StrictMode>{root()}</StrictMode>)

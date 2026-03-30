@@ -42,9 +42,7 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             }
 
             let window = webview.window();
-            // The context-menu window is app-driven show/hide; keep it out of the
-            // visibility policy so it can pop up and dismiss freely.
-            if window.label() != "menu" {
+            if !crate::platform::is_app_driven(window.label()) {
                 if let Err(error) = webview
                     .state::<WindowsPlatformState>()
                     .register_window(&window)

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "draft-read"
+description = "Allows DeskTime to read an unsaved note draft from the app data directory."
+commands.allow = ["draft_read"]

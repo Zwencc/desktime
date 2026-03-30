@@ -3,6 +3,8 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug)]
 pub enum BackendError {
     WindowNotFound(String),
+    TargetExists(String),
+    InvalidDraftId(String),
     #[cfg(not(windows))]
     UnsupportedPlatform(&'static str),
     StatePoisoned(&'static str),
@@ -16,6 +18,8 @@ impl Display for BackendError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::WindowNotFound(label) => write!(formatter, "window not found: {label}"),
+            Self::TargetExists(path) => write!(formatter, "already exists: {path}"),
+            Self::InvalidDraftId(id) => write!(formatter, "invalid draft id: {id}"),
             #[cfg(not(windows))]
             Self::UnsupportedPlatform(feature) => {
                 write!(formatter, "{feature} is not supported on this platform")

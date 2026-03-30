@@ -694,3 +694,822 @@ button {
   margin: 4px 6px;
   background: rgba(59, 130, 246, 0.2);
 }
+
+/* The editing overlay pins to the panel it belongs to, so the panel has to be
+   its containing block. */
+.floating-panel {
+  position: relative;
+}
+
+/* ── Shared form controls for the editor overlay and the settings panel ── */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.field-row.wrap {
+  align-items: flex-start;
+}
+
+.field-row.checks {
+  gap: 14px;
+}
+
+.field-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field-row small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.field-row input[type="text"],
+.field-row input[type="date"],
+.field-row input[type="time"],
+.field-row input[type="number"],
+.field-row select,
+.settings-section select {
+  width: auto;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #0f172a;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.field-row input[type="number"] {
+  width: 54px;
+}
+
+.field-row input[type="checkbox"],
+.field-row input[type="radio"],
+.widget-grid input {
+  width: auto;
+  height: auto;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
+.field-row input.grow,
+.field-row select.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.reminder-fields {
+  padding: 4px 0;
+}
+
+/* ── Buttons shared by reminders, the editor overlay and confirmations ── */
+.reminder-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.86);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reminder-button:hover {
+  background: rgba(191, 219, 254, 0.96);
+}
+
+.reminder-button.primary {
+  color: white;
+  background: #2563eb;
+}
+
+.reminder-button.primary:hover {
+  background: #1d4ed8;
+}
+
+.reminder-button.danger {
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.9);
+}
+
+.reminder-button.danger:hover {
+  background: rgba(254, 202, 202, 0.95);
+}
+
+/* ── Reminder popup window ──
+   The root is a transparent frame so the card's shadow has room; the window is
+   sized to this element's layout box by ReminderWindow.tsx. */
+.reminder-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: fit-content;
+  padding: 16px;
+}
+
+.reminder-card {
+  width: 340px;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: linear-gradient(160deg, rgba(233, 244, 255, 0.98), rgba(211, 231, 255, 0.96));
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(18px) saturate(1.1);
+  color: #0f172a;
+  user-select: none;
+}
+
+/* Visual intensity is the only alert channel — there is no sound. */
+.visual-breathe .reminder-card {
+  animation: reminder-breathe 2.4s ease-in-out infinite;
+}
+
+.visual-blink .reminder-card {
+  animation: reminder-blink 1s steps(1, end) infinite;
+}
+
+/* The shake repeats on a cycle rather than playing once: the idle tail inside
+   the keyframes is what spaces the bursts out. */
+.visual-shake .reminder-card {
+  animation:
+    reminder-shake 3s ease-in-out infinite,
+    reminder-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes reminder-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 8px 22px rgba(15, 23, 42, 0.32),
+      0 0 0 1px rgba(37, 99, 235, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 8px 26px rgba(15, 23, 42, 0.38),
+      0 0 0 4px rgba(37, 99, 235, 0.45);
+  }
+}
+
+@keyframes reminder-blink {
+  0%,
+  100% {
+    background: linear-gradient(160deg, rgba(233, 244, 255, 0.98), rgba(211, 231, 255, 0.96));
+  }
+  50% {
+    background: linear-gradient(160deg, rgba(254, 240, 199, 0.98), rgba(253, 224, 148, 0.96));
+  }
+}
+
+@keyframes reminder-shake {
+  0%,
+  15%,
+  100% {
+    transform: translateX(0);
+  }
+  2.5% {
+    transform: translateX(-6px);
+  }
+  5% {
+    transform: translateX(6px);
+  }
+  7.5% {
+    transform: translateX(-5px);
+  }
+  10% {
+    transform: translateX(4px);
+  }
+  12.5% {
+    transform: translateX(-2px);
+  }
+}
+
+.reminder-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reminder-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: #dc2626;
+  font-size: 11px;
+}
+
+.reminder-header .reminder-close {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+}
+
+.reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.reminder-item {
+  padding: 8px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.reminder-item-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 18px;
+}
+
+.reminder-item h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.reminder-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.reminder-round {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.reminder-actions,
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reminder-snooze {
+  position: relative;
+}
+
+.reminder-snooze-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  background: rgba(240, 248, 255, 0.99);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+}
+
+.reminder-snooze-menu button {
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.reminder-snooze-menu button:hover {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.reminder-more,
+.banner-more {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.reminder-button.stop-all {
+  width: 100%;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+/* ── In-app reminder banners inside the schedule widget ── */
+.banner-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.reminder-banner {
+  padding: 8px;
+  border: 1px solid rgba(251, 146, 60, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 247, 237, 0.92);
+}
+
+.banner-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.banner-head strong {
+  overflow-wrap: anywhere;
+}
+
+.banner-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0 7px;
+  color: #78716c;
+  font-size: 11px;
+}
+
+/* Clicking a schedule row opens the editor, so its body is a button that has to
+   read as plain content. */
+.schedule-item .item-body {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+.schedule-item .item-body:hover h2 {
+  color: #1d4ed8;
+}
+
+/* ── Editing overlay (schedule editor, delete confirmations) ── */
+.editor-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(2px);
+}
+
+.editor-card {
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: linear-gradient(160deg, rgba(238, 247, 255, 0.99), rgba(219, 236, 255, 0.98));
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.34);
+  color: #0f172a;
+}
+
+.editor-card::-webkit-scrollbar {
+  width: 7px;
+}
+
+.editor-card::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.42);
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.editor-header .icon-button {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+}
+
+.editor-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+  color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.editor-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.confirm-card p {
+  margin: 4px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.confirm-list {
+  margin: 4px 0;
+  padding-left: 18px;
+  color: #475569;
+  font-size: 12px;
+}
+
+/* ── Settings window ── */
+.settings-window {
+  --pad: 16px;
+  width: 100vw;
+  height: 100vh;
+  padding: var(--pad);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: transparent;
+}
+
+.settings-handle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px 8px;
+  border-radius: 18px 18px 0 0;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-bottom: 0;
+  background: linear-gradient(160deg, rgba(219, 239, 255, 0.97), rgba(198, 228, 255, 0.94));
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 800;
+  user-select: none;
+  cursor: grab;
+}
+
+.settings-handle .icon-button {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px 6px 10px 12px;
+  border-radius: 0 0 18px 18px;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-top: 0;
+  background: linear-gradient(160deg, rgba(233, 244, 255, 0.97), rgba(211, 231, 255, 0.94));
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.settings-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.settings-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+
+.settings-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.42);
+}
+
+.settings-section {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+}
+
+.settings-section:last-child {
+  border-bottom: 0;
+}
+
+.settings-section h2 {
+  margin: 0 0 4px;
+  color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.settings-subhead {
+  margin: 8px 0 2px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.widget-grid {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 4px 0 8px;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.grid-head {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.settings-about {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+/* ── Notebook: sidebar + editor ── */
+.notebook {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 0;
+}
+
+.notebook-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.notebook-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 46%;
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.sidebar-host {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  padding-top: 8px;
+}
+
+.sidebar-resizer {
+  flex: 0 0 6px;
+  margin-top: 8px;
+  cursor: col-resize;
+}
+
+.sidebar-resizer:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-radius: 999px;
+}
+
+.notebook-sidebar {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  user-select: none;
+}
+
+.sidebar-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+}
+
+.sidebar-tools .icon-button {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+
+.sidebar-search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.75);
+  color: #64748b;
+}
+
+.sidebar-search input {
+  width: 100%;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+}
+
+.sidebar-search input:focus {
+  box-shadow: none;
+}
+
+.sidebar-group {
+  border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+  padding-bottom: 4px;
+}
+
+.sidebar-head {
+  padding: 5px 8px 2px;
+  color: #1e3a8a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.sidebar-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0 10px;
+}
+
+.sidebar-tree::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-tree::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.42);
+}
+
+.sidebar-empty {
+  margin: 12px 8px;
+  color: #94a3b8;
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding-right: 6px;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 620;
+  cursor: pointer;
+}
+
+.tree-row:hover {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.tree-row.active {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.tree-row.missing .tree-name {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+/* Drop feedback: hovering a folder's middle highlights it, the top and bottom
+   edges of any row show the insertion line instead. */
+.tree-row.dragging {
+  opacity: 0.45;
+}
+
+.tree-row.drop-into {
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.55);
+}
+
+.tree-row.drop-before {
+  box-shadow: inset 0 2px 0 0 #2563eb;
+}
+
+.tree-row.drop-after {
+  box-shadow: inset 0 -2px 0 0 #2563eb;
+}
+
+.sidebar-tree.drop-root {
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.3);
+}
+
+.tree-icon {
+  flex: 0 0 14px;
+  display: inline-grid;
+  place-items: center;
+  color: #2563eb;
+}
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tree-rename {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.tree-dot {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f59e0b;
+}
+
+.tree-warn {
+  flex: 0 0 auto;
+  color: #dc2626;
+}
+
+/* Portalled to <body>, so it is positioned against the window and escapes the
+   sidebar's clipping. */
+.sidebar-menu {
+  position: fixed;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  background: rgba(240, 248, 255, 0.99);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+}
+
+.sidebar-menu button {
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-align: left;
+  justify-items: start;
+}
+
+.sidebar-menu button:hover {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.sidebar-menu button.danger {
+  color: #b91c1c;
+}

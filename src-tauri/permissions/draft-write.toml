@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "draft-write"
+description = "Allows DeskTime to auto-save an unsaved note draft into the app data directory."
+commands.allow = ["draft_write"]

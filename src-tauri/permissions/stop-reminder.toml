@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "stop-reminder"
+description = "Allows DeskTime to stop a ringing reminder and drop its pending repeats."
+commands.allow = ["stop_reminder"]

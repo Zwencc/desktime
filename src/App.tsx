@@ -1,27 +1,17 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { useRef } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow, PhysicalPosition, PhysicalSize, Window } from '@tauri-apps/api/window'
-import {
-  CalendarDays,
-  Clock3,
-  GripHorizontal,
-  NotebookPen,
-  Pin,
-  PinOff,
-  Trash2,
-} from 'lucide-react'
-import { ClockPanel } from './ClockPanel'
-import { NoteEditor } from './NoteEditor'
-import { SchedulePanel } from './SchedulePanel'
+import { GripHorizontal, Pin, PinOff, Settings } from 'lucide-react'
+import { appTimeZone, subscribeTimeZone } from './time'
+import { type WidgetKey, isWidgetKey, widgetKeys, widgetOf } from './widgets'
 import {
   type MenuAction,
-  type PanelKey,
   MENU_ACTION_KEY,
-  defaultPositions,
-  panels,
+  applyPanelPin,
+  applyPanelVisibility,
   pinnedKey,
+  resetPanelPosition,
   readAllPinnedStates,
   readAllVisibleStates,
   readSavedPosition,
@@ -35,33 +25,23 @@ import {
 } from './panels'
 import './App.css'
 
-type PanelState = Record<PanelKey, boolean>
-
-const NOTE_KEY = 'desktime.note'
+type PanelState = Record<WidgetKey, boolean>
 
 const text = {
   add: '\u6dfb\u52a0',
-  beijingTime: '\u5317\u4eac\u65f6\u95f4',
-  clear: '\u6e05\u7a7a',
   currentWindowReset: '\u91cd\u7f6e\u5f53\u524d\u7a97\u53e3\u4f4d\u7f6e',
   delete: '\u5220\u9664',
   done: '\u6807\u8bb0\u5b8c\u6210',
   newSchedule: '\u65b0\u65e5\u7a0b',
-  note: '\u4e34\u65f6\u8bb0\u4e8b',
-  noteBook: '\u4e34\u65f6\u8bb0\u4e8b\u672c',
-  notePlaceholder: '\u968f\u624b\u8bb0\u70b9\u4ec0\u4e48...',
   pin: '\u9489\u5728\u4e0a\u5c42',
   pinTop: '\u9489\u5728\u6700\u4e0a\u5c42',
   resize: '\u62d6\u62fd\u8c03\u6574\u5927\u5c0f',
-  schedule: '\u65e5\u7a0b',
-  schedulePanel: '\u684c\u9762\u65e5\u7a0b',
+  settings: '\u8bbe\u7f6e',
   show: '\u663e\u793a',
   todayReview: '\u6574\u7406\u4eca\u5929\u7684\u91cd\u70b9',
   unpinTop: '\u53d6\u6d88\u9489\u5728\u6700\u4e0a\u5c42',
   undone: '\u6807\u8bb0\u672a\u5b8c\u6210',
 }
-
-const validPanels = new Set<PanelKey>(panels)
 
 // Monotonic-per-launch nonce so repeated right-clicks at the same spot still
 // change the stored request value and fire the cross-window storage event.
@@ -81,36 +61,25 @@ const nonDragSelector = [
   '[data-no-drag]',
 ].join(',')
 
-const editableContextSelector = 'input, textarea, select, [contenteditable="true"]'
+// `[data-own-context]` marks regions that show their own in-page menu (the
+// notebook sidebar); the global widget menu must not fire on top of them.
+const editableContextSelector =
+  'input, textarea, select, [contenteditable="true"], [data-own-context]'
 
-function readCurrentPanel(): PanelKey {
+function readCurrentPanel(): WidgetKey {
   const panel = new URLSearchParams(window.location.search).get('panel')
-  return validPanels.has(panel as PanelKey) ? (panel as PanelKey) : 'clock'
+  return isWidgetKey(panel) ? panel : 'clock'
 }
 
-async function getPanelWindow(panel: PanelKey) {
-  return panel === readCurrentPanel()
-    ? getCurrentWindow()
-    : await Window.getByLabel(panel)
-}
+// The settings window is app-driven and stays out of the native VisibilityPolicy
+// registry, so it must be shown through the plain window API — `set_window_visibility`
+// would fail with WindowNotFound for an unregistered label.
+async function openSettingsWindow() {
+  const target = await Window.getByLabel('settings')
+  if (!target) return
 
-async function applyWindowPin(panel: PanelKey, pinned: boolean) {
-  const targetWindow = await getPanelWindow(panel)
-  if (!targetWindow) return
-
-  if (pinned) {
-    await targetWindow.setAlwaysOnBottom(false)
-    await targetWindow.setAlwaysOnTop(true)
-    return
-  }
-
-  await targetWindow.setAlwaysOnTop(false)
-  await targetWindow.setAlwaysOnBottom(true)
-  await invoke('set_window_to_bottom', { label: panel })
-}
-
-async function applyWindowVisibility(panel: PanelKey, visible: boolean) {
-  await invoke('set_window_visibility', { label: panel, visible })
+  await target.show()
+  await target.setFocus()
 }
 
 function isCtrlD(event: Pick<globalThis.KeyboardEvent, 'ctrlKey' | 'key'>) {
@@ -138,11 +107,14 @@ function App() {
   const panel = readCurrentPanel()
   const [pinnedStates, setPinnedStates] = useState<PanelState>(readAllPinnedStates)
   const [visibleStates, setVisibleStates] = useState<PanelState>(readAllVisibleStates)
-  const [note, setNote] = useState(() => localStorage.getItem(NOTE_KEY) ?? '')
   const menuActionRef = useRef<(action: MenuAction) => void>(() => {})
+  // A widget title may depend on the zone (the clock names it), so re-render
+  // when the setting changes.
+  useSyncExternalStore(subscribeTimeZone, appTimeZone)
 
+  const widget = widgetOf(panel)
   const pinned = pinnedStates[panel]
-  const canResize = panel !== 'clock'
+  const canResize = widget.resizable
   const visibleCount = Object.values(visibleStates).filter(Boolean).length
 
   useEffect(() => {
@@ -166,13 +138,13 @@ function App() {
   }, [])
 
   useEffect(() => {
-    void applyWindowPin(panel, pinnedStates[panel])
+    void applyPanelPin(panel, pinnedStates[panel])
     savePinnedState(panel, pinnedStates[panel])
   }, [panel, pinnedStates])
 
   useEffect(() => {
     function syncPanelState(event: StorageEvent) {
-      const pinnedPanel = panels.find((item) => event.key === pinnedKey(item))
+      const pinnedPanel = widgetKeys.find((item) => event.key === pinnedKey(item))
       if (pinnedPanel) {
         setPinnedStates((current) => ({
           ...current,
@@ -181,7 +153,7 @@ function App() {
         return
       }
 
-      const visiblePanel = panels.find((item) => event.key === visibleKey(item))
+      const visiblePanel = widgetKeys.find((item) => event.key === visibleKey(item))
       if (visiblePanel) {
         setVisibleStates((current) => ({
           ...current,
@@ -225,10 +197,6 @@ function App() {
   }, [panel, canResize])
 
   useEffect(() => {
-    localStorage.setItem(NOTE_KEY, note)
-  }, [note])
-
-  useEffect(() => {
     function onMenuAction(event: StorageEvent) {
       if (event.key !== MENU_ACTION_KEY || !event.newValue) return
 
@@ -243,16 +211,16 @@ function App() {
     return () => window.removeEventListener('storage', onMenuAction)
   }, [])
 
-  function setPanelPinned(targetPanel: PanelKey, nextPinned: boolean) {
+  function setPanelPinned(targetPanel: WidgetKey, nextPinned: boolean) {
     setPinnedStates((current) => ({
       ...current,
       [targetPanel]: nextPinned,
     }))
     savePinnedState(targetPanel, nextPinned)
-    void applyWindowPin(targetPanel, nextPinned)
+    void applyPanelPin(targetPanel, nextPinned)
   }
 
-  function setPanelVisible(targetPanel: PanelKey, nextVisible: boolean) {
+  function setPanelVisible(targetPanel: WidgetKey, nextVisible: boolean) {
     if (!nextVisible && visibleStates[targetPanel] && visibleCount <= 1) return
 
     setVisibleStates((current) => ({
@@ -260,7 +228,7 @@ function App() {
       [targetPanel]: nextVisible,
     }))
     saveVisibleState(targetPanel, nextVisible)
-    void applyWindowVisibility(targetPanel, nextVisible)
+    void applyPanelVisibility(targetPanel, nextVisible)
   }
 
   function toggleCurrentPinned() {
@@ -286,10 +254,7 @@ function App() {
   }
 
   function resetCurrentPosition() {
-    const position = defaultPositions[panel]
-
-    saveWindowPosition(panel, position)
-    void getCurrentWindow().setPosition(new PhysicalPosition(position.x, position.y))
+    void resetPanelPosition(panel)
   }
 
   menuActionRef.current = (action: MenuAction) => {
@@ -309,6 +274,19 @@ function App() {
         title={pinned ? text.unpinTop : text.pinTop}
       >
         {pinned ? <Pin size={15} aria-hidden="true" /> : <PinOff size={15} aria-hidden="true" />}
+      </button>
+    )
+  }
+
+  function renderSettingsButton() {
+    return (
+      <button
+        className="icon-button"
+        type="button"
+        onClick={() => void openSettingsWindow()}
+        title={text.settings}
+      >
+        <Settings size={15} aria-hidden="true" />
       </button>
     )
   }
@@ -338,55 +316,22 @@ function App() {
     )
   }
 
-  if (panel === 'clock') {
-    return renderShell(
-      <section
-        className="floating-panel clock-panel"
-        aria-label={text.beijingTime}
-      >
-        <div className="panel-handle" onMouseDown={startWindowDrag}>
-          <GripHorizontal size={16} aria-hidden="true" />
-          <Clock3 size={16} aria-hidden="true" />
-          <span>{text.beijingTime}</span>
-          {renderPinButton()}
-        </div>
-        <ClockPanel />
-      </section>,
-    )
-  }
-
-  if (panel === 'note') {
-    return renderShell(
-      <section
-        className="floating-panel note-panel"
-        aria-label={text.noteBook}
-      >
-        <div className="panel-handle" onMouseDown={startWindowDrag}>
-          <GripHorizontal size={16} aria-hidden="true" />
-          <NotebookPen size={16} aria-hidden="true" />
-          <span>{text.note}</span>
-          {renderPinButton()}
-          <button className="icon-button" type="button" onClick={() => setNote('')} title={text.clear}>
-            <Trash2 size={15} aria-hidden="true" />
-          </button>
-        </div>
-        <NoteEditor value={note} onChange={setNote} placeholder={text.notePlaceholder} />
-      </section>,
-    )
-  }
+  // One render path for every widget: the registry supplies the icon, the title
+  // and the body, so a new widget needs no branch here.
+  const WidgetIcon = widget.icon
+  const WidgetPanel = widget.Panel
+  const title = widget.title ? widget.title() : widget.name
 
   return renderShell(
-    <section
-      className="floating-panel schedule-panel"
-      aria-label={text.schedulePanel}
-    >
+    <section className={`floating-panel ${panel}-panel`} aria-label={title}>
       <div className="panel-handle" onMouseDown={startWindowDrag}>
         <GripHorizontal size={16} aria-hidden="true" />
-        <CalendarDays size={16} aria-hidden="true" />
-        <span>{text.schedule}</span>
+        <WidgetIcon size={16} aria-hidden="true" />
+        <span>{title}</span>
         {renderPinButton()}
+        {renderSettingsButton()}
       </div>
-      <SchedulePanel />
+      <WidgetPanel />
     </section>,
   )
 }

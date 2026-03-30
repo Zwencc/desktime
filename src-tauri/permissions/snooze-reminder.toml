@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "snooze-reminder"
+description = "Allows DeskTime to re-queue a ringing reminder a few minutes later."
+commands.allow = ["snooze_reminder"]

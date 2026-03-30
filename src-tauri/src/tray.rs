@@ -4,8 +4,6 @@ use tauri::{
     AppHandle, Manager, Runtime,
 };
 
-const PANELS: [&str; 3] = ["clock", "note", "schedule"];
-
 /// Builds the system tray icon and its right-click menu (show / hide / quit).
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show_all", "显示全部", true, None::<&str>)?;
@@ -45,11 +43,13 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     Ok(())
 }
 
+// Derived from the live window list rather than a hard-coded one, so a new
+// widget joins show-all / hide-all without touching the tray.
 fn set_all_visibility<R: Runtime>(app: &AppHandle<R>, visible: bool) {
-    for label in PANELS {
-        let Some(window) = app.get_webview_window(label) else {
+    for (label, window) in app.webview_windows() {
+        if crate::platform::is_app_driven(&label) {
             continue;
-        };
+        }
         if let Err(error) = crate::platform::set_window_visibility(&window, visible) {
             eprintln!("failed to set {label} visibility from tray: {error}");
         }

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "sync-notices"
+description = "Allows DeskTime to schedule plain timed notifications (hourly chime, pomodoro) in the backend."
+commands.allow = ["sync_notices"]

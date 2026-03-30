@@ -1,22 +1,36 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, Check, Plus, Repeat, Trash2 } from 'lucide-react'
-import { notify } from './notify'
-
-type RepeatKind = 'none' | 'daily' | 'weekly' | 'weekday'
-
-type ScheduleItem = {
-  id: string
-  title: string
-  date: string
-  time: string
-  done: boolean
-  repeat?: RepeatKind
-  tag?: string
-}
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { Bell, BellOff, Check, Plus, Repeat, Trash2 } from 'lucide-react'
+import {
+  type ReminderJob,
+  SNOOZE_CHOICES,
+  markHandled,
+  onReminderAction,
+  onReminderFired,
+  onReminderInapp,
+  readMuted,
+  readReminderDefaults,
+  resolveOccurrence,
+  saveMuted,
+  snoozeReminder,
+  stopReminder,
+  syncReminders,
+} from './reminder'
+import {
+  type RepeatKind,
+  type ScheduleItem,
+  REPEATS,
+  REPEAT_LABEL,
+  TAGS,
+  TAG_MAP,
+  dueTime,
+  nextOccurrence,
+  readSchedule,
+  saveSchedule,
+} from './schedule'
+import { ScheduleEditor } from './ScheduleEditor'
+import { appTimeZone, subscribeTimeZone, today, weekRange } from './time'
 
 type ViewKey = 'today' | 'week' | 'all'
-
-const SCHEDULE_KEY = 'desktime.schedule'
 
 const text = {
   newSchedule: '新日程',
@@ -29,27 +43,16 @@ const text = {
   all: '全部',
   allTags: '全部',
   empty: '暂无日程',
-  remindTitle: '日程提醒',
   overdue: '已逾期',
+  edit: '编辑日程',
+  muteOn: '提醒已开启，点击静音',
+  muteOff: '提醒已静音，点击开启',
+  stop: '停止提醒',
+  snooze: '稍后',
+  minutes: (value: number) => `${value} 分`,
+  complete: '完成',
+  moreBanners: (value: number) => `还有 ${value} 条提醒`,
 }
-
-const TAGS: { key: string; label: string; color: string }[] = [
-  { key: 'work', label: '工作', color: '#2563eb' },
-  { key: 'life', label: '生活', color: '#16a34a' },
-  { key: 'important', label: '重要', color: '#dc2626' },
-  { key: 'study', label: '学习', color: '#7c3aed' },
-]
-
-const TAG_MAP = new Map(TAGS.map((tag) => [tag.key, tag]))
-
-const REPEATS: { key: RepeatKind; label: string }[] = [
-  { key: 'none', label: '不重复' },
-  { key: 'daily', label: '每天' },
-  { key: 'weekly', label: '每周' },
-  { key: 'weekday', label: '工作日' },
-]
-
-const REPEAT_LABEL = new Map(REPEATS.map((repeat) => [repeat.key, repeat.label]))
 
 const VIEWS: { key: ViewKey; label: string }[] = [
   { key: 'today', label: text.today },
@@ -57,116 +60,73 @@ const VIEWS: { key: ViewKey; label: string }[] = [
   { key: 'all', label: text.all },
 ]
 
-function localYmd(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+/** Banners beyond this stay collapsed so the list keeps its room. */
+const MAX_BANNERS = 2
 
-function todayYmd() {
-  return localYmd(new Date())
-}
-
-function weekRange() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const mondayOffset = (today.getDay() + 6) % 7
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - mondayOffset)
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  return { start: localYmd(monday), end: localYmd(sunday) }
-}
-
-function dueTime(item: ScheduleItem) {
-  return new Date(`${item.date}T${item.time || '00:00'}:00`).getTime()
-}
-
-function occurrenceKey(item: ScheduleItem) {
-  return `${item.id}|${item.date}|${item.time}`
-}
-
-function nextOccurrence(dateStr: string, repeat: RepeatKind) {
-  const date = new Date(`${dateStr}T00:00:00`)
-  if (repeat === 'daily') {
-    date.setDate(date.getDate() + 1)
-  } else if (repeat === 'weekly') {
-    date.setDate(date.getDate() + 7)
-  } else if (repeat === 'weekday') {
-    do {
-      date.setDate(date.getDate() + 1)
-    } while (date.getDay() === 0 || date.getDay() === 6)
+// Completing a repeating item rolls it to the next occurrence instead of
+// finishing it for good; one-off items just flip.
+function advanceItem(item: ScheduleItem): ScheduleItem {
+  if (item.repeat && item.repeat !== 'none' && !item.done) {
+    return { ...item, date: nextOccurrence(item.date, item.repeat) }
   }
-  return localYmd(date)
+  return { ...item, done: !item.done }
 }
-
-function readSchedule(): ScheduleItem[] {
-  try {
-    const value = localStorage.getItem(SCHEDULE_KEY)
-    if (!value) return defaultItems
-    return JSON.parse(value) as ScheduleItem[]
-  } catch {
-    return defaultItems
-  }
-}
-
-const defaultItems: ScheduleItem[] = [
-  {
-    id: 'daily-review',
-    title: '整理今天的重点',
-    date: todayYmd(),
-    time: '18:00',
-    done: false,
-    repeat: 'weekday',
-    tag: 'work',
-  },
-]
 
 export function SchedulePanel() {
   const [items, setItems] = useState<ScheduleItem[]>(readSchedule)
   const [draftTitle, setDraftTitle] = useState('')
-  const [draftDate, setDraftDate] = useState(todayYmd)
+  const [draftDate, setDraftDate] = useState(today)
   const [draftTime, setDraftTime] = useState('09:00')
   const [draftRepeat, setDraftRepeat] = useState<RepeatKind>('none')
   const [draftTag, setDraftTag] = useState('')
   const [view, setView] = useState<ViewKey>('today')
   const [tagFilter, setTagFilter] = useState('all')
-  const notifiedRef = useRef<Set<string>>(new Set())
-  const seededRef = useRef(false)
+  const [muted, setMuted] = useState(readMuted)
+  const [banners, setBanners] = useState<ReminderJob[]>([])
+  const [snoozeFor, setSnoozeFor] = useState<string | null>(null)
+  const [editing, setEditing] = useState<ScheduleItem | null>(null)
+  const zone = useSyncExternalStore(subscribeTimeZone, appTimeZone)
 
   useEffect(() => {
-    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(items))
+    saveSchedule(items)
   }, [items])
 
-  // Fire desktop notifications when an item's due time passes. Already-overdue
-  // items are seeded on mount so launching the app does not replay old reminders.
+  // The backend owns the clock, so every change to the plan is pushed over.
+  // A zone change matters too: it moves every trigger point.
   useEffect(() => {
-    const notified = notifiedRef.current
-    function check() {
-      const now = Date.now()
-      items.forEach((item) => {
-        if (item.done) return
-        if (dueTime(item) > now) return
-        const key = occurrenceKey(item)
-        if (notified.has(key)) return
-        notified.add(key)
-        if (seededRef.current) void notify(text.remindTitle, `${item.title}（${item.time}）`)
-      })
-      seededRef.current = true
-    }
-    check()
-    const timer = window.setInterval(check, 15000)
-    return () => window.clearInterval(timer)
-  }, [items])
+    void syncReminders(items)
+  }, [items, muted, zone])
+
+  useEffect(
+    () =>
+      onReminderInapp((job) => {
+        setBanners((current) => [...current.filter((entry) => entry.id !== job.id), job])
+      }),
+    [],
+  )
+
+  // Recording every ring is what stops a relaunch from replaying reminders the
+  // user already saw.
+  useEffect(() => onReminderFired(({ id }) => markHandled(id)), [])
+
+  useEffect(
+    () =>
+      onReminderAction((action) => {
+        if (action.type !== 'done') return
+        setItems((current) =>
+          current.map((item) => (item.id === action.itemId ? advanceItem(item) : item)),
+        )
+      }),
+    [],
+  )
 
   const orderedItems = useMemo(() => {
     const { start, end } = weekRange()
-    const today = todayYmd()
+    const todayDate = today()
     return [...items]
       .filter((item) => {
         if (tagFilter !== 'all' && item.tag !== tagFilter) return false
-        if (view === 'today') return item.date <= today
+        if (view === 'today') return item.date <= todayDate
         if (view === 'week') return item.date >= start && item.date <= end
         return true
       })
@@ -178,6 +138,7 @@ export function SchedulePanel() {
   function addItem() {
     const title = draftTitle.trim()
     if (!title) return
+
     setItems((current) => [
       ...current,
       {
@@ -188,32 +149,127 @@ export function SchedulePanel() {
         done: false,
         repeat: draftRepeat,
         tag: draftTag || undefined,
+        reminder: readReminderDefaults(),
       },
     ])
     setDraftTitle('')
   }
 
   function toggleItem(id: string) {
-    setItems((current) =>
-      current.map((item) => {
-        if (item.id !== id) return item
-        if (item.repeat && item.repeat !== 'none' && !item.done) {
-          // Repeating items roll forward to their next occurrence instead of completing.
-          return { ...item, date: nextOccurrence(item.date, item.repeat) }
-        }
-        return { ...item, done: !item.done }
-      }),
-    )
+    setItems((current) => current.map((item) => (item.id === id ? advanceItem(item) : item)))
   }
 
   function deleteItem(id: string) {
     setItems((current) => current.filter((item) => item.id !== id))
+    setEditing(null)
+  }
+
+  function saveItem(next: ScheduleItem) {
+    setItems((current) => current.map((item) => (item.id === next.id ? next : item)))
+    setEditing(null)
+  }
+
+  function toggleMute() {
+    setMuted((current) => {
+      const next = !current
+      saveMuted(next)
+      return next
+    })
+  }
+
+  function dismissBanner(id: string) {
+    setBanners((current) => current.filter((entry) => entry.id !== id))
+    setSnoozeFor((current) => (current === id ? null : current))
+  }
+
+  function stopBanner(id: string) {
+    resolveOccurrence(id)
+    void stopReminder(id)
+    dismissBanner(id)
+  }
+
+  function snoozeBanner(id: string, minutes: number) {
+    void snoozeReminder(id, minutes)
+    dismissBanner(id)
+  }
+
+  function completeBanner(job: ReminderJob) {
+    resolveOccurrence(job.id)
+    void stopReminder(job.id)
+    toggleItem(job.itemId)
+    dismissBanner(job.id)
   }
 
   const now = Date.now()
+  const visibleBanners = banners.slice(-MAX_BANNERS)
+  const collapsedBanners = banners.length - visibleBanners.length
 
   return (
     <>
+      {visibleBanners.length > 0 && (
+        <div className="banner-stack" data-no-drag>
+          {visibleBanners.map((job) => (
+            <div className="reminder-banner" key={job.id}>
+              <div className="banner-head">
+                <Bell size={13} aria-hidden="true" />
+                <strong>{job.title}</strong>
+              </div>
+              <p className="banner-meta">
+                <span>{job.timeLabel}</span>
+                {job.overdueMinutes > 0 && (
+                  <span className="item-overdue">
+                    {text.overdue} {job.overdueMinutes} 分钟
+                  </span>
+                )}
+              </p>
+              <div className="banner-actions">
+                <button
+                  type="button"
+                  className="reminder-button primary"
+                  onClick={() => stopBanner(job.id)}
+                >
+                  {text.stop}
+                </button>
+                <div className="reminder-snooze">
+                  <button
+                    type="button"
+                    className="reminder-button"
+                    onClick={() =>
+                      setSnoozeFor((current) => (current === job.id ? null : job.id))
+                    }
+                  >
+                    {text.snooze}
+                  </button>
+                  {snoozeFor === job.id && (
+                    <div className="reminder-snooze-menu">
+                      {SNOOZE_CHOICES.map((minutes) => (
+                        <button
+                          key={minutes}
+                          type="button"
+                          onClick={() => snoozeBanner(job.id, minutes)}
+                        >
+                          {text.minutes(minutes)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="reminder-button"
+                  onClick={() => completeBanner(job)}
+                >
+                  {text.complete}
+                </button>
+              </div>
+            </div>
+          ))}
+          {collapsedBanners > 0 && (
+            <div className="banner-more">{text.moreBanners(collapsedBanners)}</div>
+          )}
+        </div>
+      )}
+
       <div className="schedule-controls" data-no-drag>
         <div className="view-tabs">
           {VIEWS.map((entry) => (
@@ -245,6 +301,14 @@ export function SchedulePanel() {
             />
           ))}
         </div>
+        <button
+          type="button"
+          className={muted ? 'icon-button' : 'icon-button active'}
+          onClick={toggleMute}
+          title={muted ? text.muteOff : text.muteOn}
+        >
+          {muted ? <BellOff size={14} aria-hidden="true" /> : <Bell size={14} aria-hidden="true" />}
+        </button>
       </div>
 
       <div className="schedule-form" data-no-drag>
@@ -307,7 +371,18 @@ export function SchedulePanel() {
               {tag && (
                 <span className="item-tag" style={{ background: tag.color }} title={tag.label} />
               )}
-              <div>
+              {/* A <button> may not wrap headings, so this is a div with the
+                  button role — which nonDragSelector already excludes from drags. */}
+              <div
+                className="item-body"
+                role="button"
+                tabIndex={0}
+                title={text.edit}
+                onClick={() => setEditing(item)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') setEditing(item)
+                }}
+              >
                 <h2>{item.title}</h2>
                 <p>
                   {item.date} {item.time}
@@ -337,6 +412,15 @@ export function SchedulePanel() {
           {remaining > 0 ? `${remaining} 项未完成` : '全部完成 🎉'}
         </span>
       </div>
+
+      {editing && (
+        <ScheduleEditor
+          item={editing}
+          onSave={saveItem}
+          onDelete={deleteItem}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </>
   )
 }

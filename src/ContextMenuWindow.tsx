@@ -10,25 +10,18 @@ import {
 import {
   type MenuAction,
   type MenuRequest,
-  type PanelKey,
   MENU_REQUEST_KEY,
-  panels,
   readAllPinnedStates,
   readAllVisibleStates,
   sendMenuAction,
 } from './panels'
+import { type WidgetKey, widgetKeys, widgetName } from './widgets'
 import './App.css'
 
 const text = {
   pin: '钉在上层',
   show: '显示',
   reset: '重置当前窗口位置',
-}
-
-const panelNames: Record<PanelKey, string> = {
-  clock: '北京时间',
-  note: '临时记事',
-  schedule: '日程',
 }
 
 // Transparent frame (in CSS px) around the menu card so its drop shadow has
@@ -43,8 +36,8 @@ function nextActionNonce() {
 
 type OpenState = {
   request: MenuRequest
-  pinned: Record<PanelKey, boolean>
-  visible: Record<PanelKey, boolean>
+  pinned: Record<WidgetKey, boolean>
+  visible: Record<WidgetKey, boolean>
 }
 
 export function ContextMenuWindow() {
@@ -186,7 +179,7 @@ export function ContextMenuWindow() {
   if (!state) return null
 
   const { request, pinned, visible: visibleStates } = state
-  const visibleCount = panels.filter((item) => visibleStates[item]).length
+  const visibleCount = widgetKeys.filter((item) => visibleStates[item]).length
 
   return (
     <div
@@ -196,12 +189,12 @@ export function ContextMenuWindow() {
       onTransitionEnd={finishClose}
     >
       <div className="context-menu">
-        {panels.map((item, index) => {
+        {widgetKeys.map((item, index) => {
         const hideDisabled = visibleStates[item] && visibleCount <= 1
 
         return (
           <div key={item} className="menu-group">
-            <div className="menu-header">{panelNames[item]}</div>
+            <div className="menu-header">{widgetName(item)}</div>
             <button
               type="button"
               className="menu-item"
@@ -235,7 +228,7 @@ export function ContextMenuWindow() {
               <span className="menu-check">{visibleStates[item] ? <Check size={13} aria-hidden="true" /> : null}</span>
               <span>{text.show}</span>
             </button>
-            {index < panels.length - 1 ? <div className="menu-separator" /> : null}
+            {index < widgetKeys.length - 1 ? <div className="menu-separator" /> : null}
           </div>
         )
       })}

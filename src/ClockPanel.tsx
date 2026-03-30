@@ -1,14 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Bell, BellOff, Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { HolidayUtil, Solar } from 'lunar-javascript'
-import { notify } from './notify'
+import { type NoticeJob, syncNotices } from './reminder'
+import {
+  appTimeZone,
+  formatClock,
+  formatDate,
+  subscribeTimeZone,
+  timeZoneLabel,
+  zonedEpoch,
+  zonedHourMinute,
+  zonedYmd,
+} from './time'
 
 const text = {
   lunarPrefix: '农历',
   pomodoroDone: '🍅 番茄钟完成',
   pomodoroDoneBody: '专注时间到，休息一下吧',
   hourlyChime: '整点报时',
-  hourlyBody: (hour: number) => `现在是北京时间 ${hour} 点整`,
+  hourlyBody: (hour: number) => `现在是${timeZoneLabel()} ${hour} 点整`,
   hourlyOn: '整点报时：开',
   hourlyOff: '整点报时：关',
   startFocus: '开始专注',
@@ -18,45 +28,40 @@ const text = {
 
 const HOURLY_CHIME_KEY = 'desktime.hourlyChime'
 const POMODORO_MS = 25 * 60 * 1000
+const POMODORO_JOB = 'pomodoro'
 
-const beijingClock = new Intl.DateTimeFormat('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-})
-
-const beijingDate = new Intl.DateTimeFormat('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  month: 'long',
-  day: 'numeric',
-  weekday: 'short',
-})
-
-const beijingParts = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'Asia/Shanghai',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
-
-const beijingYmd = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Shanghai',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-})
-
-function beijingHourMinute(date: Date) {
-  const parts = beijingParts.formatToParts(date)
-  const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? '0')
-  const hour = read('hour')
-  return { hour: hour === 24 ? 0 : hour, minute: read('minute') }
-}
+/**
+ * How far ahead the chime is queued. The backend holds the whole run, so the
+ * clock can be throttled — or the window hidden — for the better part of a day
+ * without missing an hour.
+ */
+const HOURLY_LOOKAHEAD = 24
 
 function pad(value: number) {
   return String(value).padStart(2, '0')
+}
+
+// Hour boundaries are computed in the app zone rather than by stepping UTC,
+// because not every zone sits on a whole hour (India is +05:30, Nepal +05:45).
+function hourlyNotices(): NoticeJob[] {
+  const now = Date.now()
+  const notices: NoticeJob[] = []
+
+  for (let step = 1; step <= HOURLY_LOOKAHEAD; step += 1) {
+    const probe = new Date(now + step * 3600000)
+    const { hour } = zonedHourMinute(probe)
+    const triggerAt = zonedEpoch(zonedYmd(probe), `${pad(hour)}:00`)
+    if (Number.isNaN(triggerAt) || triggerAt <= now) continue
+
+    notices.push({
+      id: `hourly-${triggerAt}`,
+      triggerAt,
+      title: text.hourlyChime,
+      body: text.hourlyBody(hour),
+    })
+  }
+
+  return notices
 }
 
 function formatDuration(ms: number) {
@@ -86,36 +91,47 @@ export function ClockPanel() {
     () => localStorage.getItem(HOURLY_CHIME_KEY) === 'true',
   )
   const endRef = useRef(0)
-  const lastChimeHourRef = useRef(beijingHourMinute(new Date()).hour)
+  // Re-render (and drop the memoised lunar date) when the time zone setting changes.
+  const zone = useSyncExternalStore(subscribeTimeZone, appTimeZone)
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000)
     return () => window.clearInterval(timer)
   }, [])
 
+  // The countdown display still ticks here, but the completion notification no
+  // longer does: the backend owns that so it fires even when this window is
+  // hidden. One second is enough for a mm:ss readout.
   useEffect(() => {
     if (!running) return
     const timer = window.setInterval(() => {
       const left = Math.max(0, endRef.current - Date.now())
       setRemaining(left)
-      if (left === 0) {
-        setRunning(false)
-        void notify(text.pomodoroDone, text.pomodoroDoneBody)
-      }
-    }, 250)
+      if (left === 0) setRunning(false)
+    }, 1000)
     return () => window.clearInterval(timer)
   }, [running])
 
-  useEffect(() => {
-    if (!hourlyChime) return
-    const { hour, minute } = beijingHourMinute(now)
-    if (minute === 0 && lastChimeHourRef.current !== hour) {
-      lastChimeHourRef.current = hour
-      void notify(text.hourlyChime, text.hourlyBody(hour))
-    }
-  }, [now, hourlyChime])
+  const currentHour = zonedHourMinute(now).hour
 
-  const ymd = beijingYmd.format(now)
+  // Both timed notifications this widget owns go over as one plan — the backend
+  // replaces the whole notice list on each sync. Re-running once an hour tops the
+  // queue back up to a full day of lookahead.
+  useEffect(() => {
+    const notices = hourlyChime ? hourlyNotices() : []
+    if (running) {
+      notices.push({
+        id: POMODORO_JOB,
+        triggerAt: endRef.current,
+        title: text.pomodoroDone,
+        body: text.pomodoroDoneBody,
+      })
+    }
+
+    void syncNotices(notices)
+  }, [hourlyChime, running, zone, currentHour])
+
+  const ymd = zonedYmd(now)
   const lunar = useMemo(() => computeLunar(ymd), [ymd])
 
   function togglePomodoro() {
@@ -138,15 +154,14 @@ export function ClockPanel() {
     setHourlyChime((current) => {
       const next = !current
       localStorage.setItem(HOURLY_CHIME_KEY, String(next))
-      if (next) lastChimeHourRef.current = beijingHourMinute(new Date()).hour
       return next
     })
   }
 
   return (
     <>
-      <div className="time">{beijingClock.format(now)}</div>
-      <div className="date">{beijingDate.format(now)}</div>
+      <div className="time">{formatClock(now)}</div>
+      <div className="date">{formatDate(now)}</div>
       <div className="lunar-line">
         <span className="lunar-date">{lunar.date}</span>
         {lunar.tags.slice(0, 2).map((tag) => (

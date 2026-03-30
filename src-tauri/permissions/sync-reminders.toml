@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "sync-reminders"
+description = "Allows DeskTime to hand the schedule's reminder plan to the backend scheduler."
+commands.allow = ["sync_reminders"]

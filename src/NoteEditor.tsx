@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { EditorSelection, EditorState } from '@codemirror/state'
 import {
   EditorView,
@@ -10,20 +11,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
-import { invoke } from '@tauri-apps/api/core'
-import { open, save } from '@tauri-apps/plugin-dialog'
-import {
-  Bold,
-  Eye,
-  FolderOpen,
-  Heading1,
-  Italic,
-  List,
-  ListTodo,
-  PenLine,
-  Save,
-} from 'lucide-react'
-import { isTauri } from './env'
+import { Bold, Eye, Heading1, Italic, List, ListTodo, PenLine } from 'lucide-react'
 import { renderMarkdown } from './markdown'
 
 const text = {
@@ -32,24 +20,10 @@ const text = {
   heading: '标题',
   bullet: '无序列表',
   checklist: '待办项',
-  importFile: '导入文件',
   preview: '预览',
   edit: '编辑',
-  saveFile: '导出为文件',
-  autoSaved: '自动保存',
-  saving: '导出中…',
-  exported: '已导出',
-  failed: '导出失败',
-  overwrite: '导入会覆盖当前记事内容，确定继续吗？',
   chars: '字',
 }
-
-const savedTimeFormat = new Intl.DateTimeFormat('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
 
 // Markdown syntax colours tuned for DeskTime's light glass panel.
 const markdownHighlight = HighlightStyle.define([
@@ -144,123 +118,39 @@ function insertPastedImage(view: EditorView, file: File) {
   reader.readAsDataURL(file)
 }
 
-const suggestedFileName = 'desktime-note.md'
-const importExtensions = ['md', 'markdown', 'txt']
-
-async function exportToFile(contents: string) {
-  if (isTauri) {
-    const path = await save({
-      defaultPath: suggestedFileName,
-      filters: [
-        { name: 'Markdown', extensions: ['md'] },
-        { name: 'Text', extensions: ['txt'] },
-      ],
-    })
-    if (!path) return false
-    await invoke('save_text_file', { path, contents })
-    return true
-  }
-
-  // Web prototype (`npm run dev`) has no native dialog; fall back to a download.
-  const blob = new Blob([contents], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = suggestedFileName
-  anchor.click()
-  URL.revokeObjectURL(url)
-  return true
-}
-
-async function importFromFile(): Promise<string | null> {
-  if (isTauri) {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: 'Markdown / Text', extensions: importExtensions }],
-    })
-    if (typeof selected !== 'string') return null
-    return await invoke<string>('read_text_file', { path: selected })
-  }
-
-  // Web prototype fallback: a hidden file input.
-  return new Promise((resolve) => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.md,.markdown,.txt,text/*'
-    input.onchange = () => {
-      const file = input.files?.[0]
-      if (!file) {
-        resolve(null)
-        return
-      }
-      const reader = new FileReader()
-      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
-      reader.onerror = () => resolve(null)
-      reader.readAsText(file)
-    }
-    input.click()
-  })
-}
-
-type SaveStatus =
-  | { kind: 'idle' }
-  | { kind: 'saving' }
-  | { kind: 'saved'; at: string }
-  | { kind: 'error' }
-
 type NoteEditorProps = {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  /** Ctrl+S. File actions and save status live in the notebook shell. */
+  onSave: () => void
+  toolbarLead?: ReactNode
+  toolbarExtra?: ReactNode
+  footerExtra?: ReactNode
 }
 
-export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
+export function NoteEditor({
+  value,
+  onChange,
+  placeholder,
+  onSave,
+  toolbarLead,
+  toolbarExtra,
+  footerExtra,
+}: NoteEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
-  const saveRef = useRef<() => void>(() => {})
+  const saveRef = useRef(onSave)
   // Captured once for the initial editor state; live updates flow through props.
   const initialDocRef = useRef(value)
   const placeholderRef = useRef(placeholder ?? '')
 
   const [charCount, setCharCount] = useState(value.length)
-  const [status, setStatus] = useState<SaveStatus>({ kind: 'idle' })
   const [mode, setMode] = useState<'edit' | 'preview'>('edit')
 
   onChangeRef.current = onChange
-
-  const handleSave = useCallback(() => {
-    const contents = viewRef.current?.state.doc.toString() ?? value
-    setStatus({ kind: 'saving' })
-    void (async () => {
-      try {
-        const saved = await exportToFile(contents)
-        setStatus(
-          saved ? { kind: 'saved', at: savedTimeFormat.format(new Date()) } : { kind: 'idle' },
-        )
-      } catch (error) {
-        console.error('Failed to export note', error)
-        setStatus({ kind: 'error' })
-      }
-    })()
-  }, [value])
-
-  saveRef.current = handleSave
-
-  const handleImport = useCallback(() => {
-    void (async () => {
-      try {
-        const content = await importFromFile()
-        if (content == null) return
-        if (value.trim() && !window.confirm(text.overwrite)) return
-        onChangeRef.current(content)
-        setStatus({ kind: 'idle' })
-      } catch (error) {
-        console.error('Failed to import note', error)
-        setStatus({ kind: 'error' })
-      }
-    })()
-  }, [value])
+  saveRef.current = onSave
 
   // Create the editor once; React state stays the persistence source of truth.
   useEffect(() => {
@@ -299,7 +189,6 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
             if (!update.docChanged) return
             onChangeRef.current(update.state.doc.toString())
             setCharCount(update.state.doc.length)
-            setStatus({ kind: 'idle' })
           }),
         ],
       }),
@@ -315,7 +204,7 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
     }
   }, [])
 
-  // Reconcile external changes (import, clear button, cross-window storage sync).
+  // Reconcile external changes (switching notes, clearing, cross-window sync).
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
@@ -325,18 +214,10 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
     setCharCount(value.length)
   }, [value])
 
-  const statusLabel =
-    status.kind === 'saving'
-      ? text.saving
-      : status.kind === 'saved'
-        ? `${text.exported} ${status.at}`
-        : status.kind === 'error'
-          ? text.failed
-          : text.autoSaved
-
   return (
     <div className="note-editor" data-no-drag>
       <div className="note-toolbar">
+        {toolbarLead}
         {mode === 'edit' && (
           <>
             <button
@@ -391,15 +272,6 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
 
         <button
           type="button"
-          className="format-button"
-          title={text.importFile}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={handleImport}
-        >
-          <FolderOpen size={14} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
           className={mode === 'preview' ? 'format-button active' : 'format-button'}
           title={mode === 'preview' ? text.edit : text.preview}
           onMouseDown={(event) => event.preventDefault()}
@@ -407,16 +279,7 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
         >
           {mode === 'preview' ? <PenLine size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
         </button>
-        <button
-          type="button"
-          className="format-button save-note-button"
-          title={text.saveFile}
-          disabled={status.kind === 'saving'}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={handleSave}
-        >
-          <Save size={14} aria-hidden="true" />
-        </button>
+        {toolbarExtra}
       </div>
 
       <div
@@ -436,9 +299,7 @@ export function NoteEditor({ value, onChange, placeholder }: NoteEditorProps) {
         <span>
           {charCount} {text.chars}
         </span>
-        <span className={status.kind === 'error' ? 'note-status error' : 'note-status'}>
-          {statusLabel}
-        </span>
+        {footerExtra}
       </div>
     </div>
   )
