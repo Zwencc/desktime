@@ -28,8 +28,32 @@ dist-ssr
 src-tauri/gen
 src-tauri/target
 
+# Developer-mode marker (dev builds look for it in src-tauri/)
+devmod.dev
+
+# User data. A release build keeps these next to the executable; a debug build
+# has no executable that survives `cargo clean`, so it uses src-tauri/ instead.
+src-tauri/config/
+src-tauri/drafts/
+src-tauri/activity/
+src-tauri/llm.key
+src-tauri/.migrated
+# DTCore's database, and the WAL/shm files that travel with it.
+src-tauri/desktime.db
+src-tauri/desktime.db-wal
+src-tauri/desktime.db-shm
+src-tauri/vault/
+src-tauri/logs/
+# A browser widget's cookies and logins, one folder per widget.
+src-tauri/browser-profiles/
+# A debug build looks for plugins beside src-tauri/, so a dev machine points a
+# directory junction at the repo's own plugins/ folder. See the acceptance notes.
+src-tauri/plugins/
+
 # Stray tools / temp
-.tmp_dbeaver_ascii/
+.tmp_dbeaver_ascii
+__pycache__/
+*.py[cod]
 
 # Personal / non-project agent notes (keep local, never commit)
 CLAUDE.md
@@ -38,3 +62,4 @@ Agent.md
 
 # Design docs, dev notes, planning — local only
 docs/
+src-tauri/binaries/
