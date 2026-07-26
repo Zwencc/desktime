@@ -1,0 +1,36 @@
+{
+  "id": "video-player",
+  "name": "\u7f51\u9875\u89c6\u9891\u5c0f\u7a97",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "author": "DeskTime",
+  "description": "B\u7ad9\u4e0e YouTube \u7684\u53d7\u9650\u5c0f\u6d4f\u89c8\u5668\uff1a\u53ea\u88c1\u526a\u89c6\u53e3\uff0c\u4e0d\u62bd\u76f4\u94fe\u3001\u4e0d\u4e0b\u8f7d\u3001\u4e0d\u7ed5\u8fc7 DRM\u3001\u4e0d\u53bb\u5e7f\u544a\u3001\u4e0d\u89e3\u9501\u4f1a\u5458\u3002",
+  "contributes": {
+    "widgets": [
+      {
+        "key": "player",
+        "name": "\u7f51\u9875\u89c6\u9891\u5c0f\u7a97",
+        "entry": "web/index.html",
+        "size": { "width": 720, "height": 480 },
+        "minSize": { "width": 320, "height": 200 },
+        "resizable": true,
+        "defaultVisible": false,
+        "chrome": { "resize": true },
+        "browser": {
+          "allowedOrigins": [
+            "https://www.bilibili.com",
+            "https://passport.bilibili.com",
+            "https://www.youtube.com",
+            "https://m.youtube.com",
+            "https://accounts.google.com",
+            "https://consent.youtube.com"
+          ],
+          "initialUrl": "https://www.bilibili.com/",
+          "injection": "web/player.js",
+          "persistProfile": true
+        }
+      }
+    ]
+  },
+  "activation": ["onWidgetVisible"]
+}

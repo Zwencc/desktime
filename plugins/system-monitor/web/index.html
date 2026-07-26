@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>系统状态</title>
+    <style>
+      /* Every colour is a host theme variable, so this plugin follows whatever
+         theme the user picked without knowing any of them. The fallbacks are
+         only for opening this file directly in a browser. */
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        height: 100vh;
+        /* 16px all round, the same margin the built-in widgets keep, so the
+           panel's drop shadow has somewhere to land. See .panel below. */
+        padding: 16px;
+        font-family: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+        color: var(--ink, #0f172a);
+        background: transparent;
+        user-select: none;
+      }
+
+      .panel {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 8px 11px 10px;
+        border-radius: 18px;
+        border: 1px solid rgba(var(--accent-soft-rgb, 59 130 246), 0.3);
+        background: linear-gradient(160deg, var(--panel-top, #dbefff), var(--panel-bottom, #bce0ff));
+        /* Matched to the built-in widgets: `0 4px 12px` needs 16px of room and
+           `body` leaves exactly that, so the whole shadow lands inside the
+           window. A larger one is clipped by the window edge, and a clipped
+           shadow reads as a grey border round a transparent box. */
+        box-shadow:
+          0 4px 12px rgba(var(--shadow-rgb, 15 23 42), 0.26),
+          inset 0 1px 0 rgba(var(--highlight-rgb, 255 255 255), 0.72);
+        backdrop-filter: blur(22px) saturate(1.12);
+      }
+
+      /* Just a title. The window is dragged, resized, pinned and closed by the
+         shell the host draws for it — see "chrome" in plugin.json. */
+      .handle {
+        display: flex;
+        align-items: center;
+        margin: -2px -4px 6px;
+        padding: 2px 4px;
+        color: var(--accent-deep, #1e3a8a);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .rows {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 7px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 34px 1fr 46px;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+      }
+
+      .name {
+        color: var(--ink-muted, #475569);
+        font-weight: 700;
+      }
+
+      .track {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(var(--chip-rgb, 219 234 254), 0.9);
+        overflow: hidden;
+      }
+
+      .fill {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--accent, #2563eb);
+        /* The reading arrives once a second; easing between them reads as a
+           live meter rather than a stepping one. */
+        transition: width 0.9s linear;
+      }
+
+      .fill.warn {
+        background: var(--warn-accent, #f59e0b);
+      }
+
+      .fill.hot {
+        background: var(--danger, #dc2626);
+      }
+
+      .value {
+        color: var(--ink-soft, #1e293b);
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .note {
+        margin-top: 6px;
+        color: var(--ink-ghost, #94a3b8);
+        font-size: 10px;
+        text-align: center;
+        min-height: 13px;
+      }
+
+      .note.error {
+        color: var(--danger, #dc2626);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <div class="handle">系统状态</div>
+
+      <div class="rows">
+        <div class="row">
+          <span class="name">CPU</span>
+          <span class="track"><span class="fill" id="cpu-fill"></span></span>
+          <span class="value" id="cpu-value">—</span>
+        </div>
+        <div class="row">
+          <span class="name">内存</span>
+          <span class="track"><span class="fill" id="mem-fill"></span></span>
+          <span class="value" id="mem-value">—</span>
+        </div>
+        <div class="row">
+          <span class="name">磁盘</span>
+          <span class="track"><span class="fill" id="disk-fill"></span></span>
+          <span class="value" id="disk-value">—</span>
+        </div>
+      </div>
+
+      <div class="note" id="note"></div>
+    </div>
+
+    <script>
+      const note = document.getElementById('note')
+
+      function paint(id, percent) {
+        const fill = document.getElementById(id + '-fill')
+        const value = document.getElementById(id + '-value')
+
+        // null means "could not read", which is not the same as 0% — showing a
+        // zero would be a confident lie about a number nobody measured.
+        if (percent === null || percent === undefined) {
+          fill.style.width = '0%'
+          value.textContent = '—'
+          return
+        }
+
+        fill.style.width = Math.min(100, percent) + '%'
+        fill.className = percent >= 90 ? 'fill hot' : percent >= 70 ? 'fill warn' : 'fill'
+        value.textContent = percent.toFixed(0) + '%'
+      }
+
+      function render(reading) {
+        paint('cpu', reading.cpu)
+        paint('mem', reading.memory)
+        paint('disk', reading.disk)
+
+        note.className = 'note'
+        note.textContent = reading.memoryGb
+          ? reading.memoryGb[0] + ' / ' + reading.memoryGb[1] + ' GB'
+          : ''
+      }
+
+      // The backend pushes a reading every second; the widget just renders what
+      // arrives. No polling loop here at all.
+      desktime.on('sample', render)
+
+      // One request at startup so the panel is not blank while waiting for the
+      // first push — and, incidentally, what starts the backend.
+      async function prime() {
+        try {
+          render(await desktime.call('sample', {}))
+        } catch (error) {
+          note.className = 'note error'
+          note.textContent = String(error)
+          // The backend may still be coming back up after a crash; the host
+          // restarts it, so trying again is worth more than giving up.
+          setTimeout(prime, 3000)
+        }
+      }
+
+      prime()
+
+      // The refresh interval is declared in plugin.json, rendered by the host's
+      // settings window, and handed to the backend from here — the widget is the
+      // only piece that knows about both ends. `onSettings` matters as much as
+      // the first read: without it the user changes the interval, nothing
+      // happens, and the setting looks broken.
+      function configure(settings) {
+        const seconds = Number(settings && settings.interval) || 2
+        desktime.call('configure', { interval: seconds }).catch(function () {})
+      }
+
+      desktime.settings().then(configure)
+      desktime.onSettings(configure)
+    </script>
+  </body>
+</html>

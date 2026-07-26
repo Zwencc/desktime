@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>示例插件</title>
+    <style>
+      /* The host injects its theme variables onto :root before this page runs,
+         so using var(--accent) is all it takes to follow the user's theme.
+         Hard-coding a colour here would work and would silently stop matching
+         the rest of the desktop the moment the theme changed. */
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        height: 100vh;
+        /* 16px all round, the same margin the built-in widgets keep, so the
+           panel's drop shadow has somewhere to land. See .panel below. */
+        padding: 16px;
+        font-family: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+        color: var(--ink, #1e293b);
+        /* Windows are transparent; the panel below is what is actually seen. */
+        background: transparent;
+        user-select: none;
+      }
+
+      .panel {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 10px 12px;
+        border-radius: 18px;
+        border: 1px solid rgba(var(--accent-soft-rgb, 148 163 184), 0.3);
+        background: linear-gradient(160deg, var(--panel-top, #fff), var(--panel-bottom, #eef2ff));
+        /* Matched to the built-in widgets: `0 4px 12px` needs 16px of room and
+           `body` leaves exactly that, so the whole shadow lands inside the
+           window. A larger one is clipped by the window edge, and a clipped
+           shadow reads as a grey border round a transparent box. */
+        box-shadow:
+          0 4px 12px rgba(var(--shadow-rgb, 15 23 42), 0.26),
+          inset 0 1px 0 rgba(var(--highlight-rgb, 255 255 255), 0.72);
+        backdrop-filter: blur(22px) saturate(1.12);
+      }
+
+      /* The drag handle. Any element can be one — call desktime.window.drag(). */
+      .handle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: -2px -4px 6px;
+        padding: 2px 4px;
+        color: var(--accent-deep, #1e3a8a);
+        font-size: 12px;
+        font-weight: 800;
+        cursor: grab;
+      }
+
+      .spacer {
+        flex: 1;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 4px 10px;
+        background: rgba(var(--accent-pale-rgb, 191 219 254), 0.5);
+        color: var(--accent-deep, #1e3a8a);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: rgba(var(--accent-soft-rgb, 148 163 184), 0.45);
+      }
+
+      .value {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        font-size: 24px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--accent, #2563eb);
+      }
+
+      .note {
+        font-size: 11px;
+        color: var(--ink-muted, #64748b);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <!-- Dragging the window: the host does the actual move, so it behaves
+           exactly like a built-in widget rather than approximately like one. -->
+      <div class="handle" onpointerdown="desktime.window.drag()">
+        示例插件
+        <span class="spacer"></span>
+        <button onclick="desktime.window.hide()">×</button>
+      </div>
+
+      <div class="value" id="value">—</div>
+      <div class="note" id="note">点一下试试后端</div>
+    </div>
+
+    <script>
+      const value = document.getElementById('value')
+      const note = document.getElementById('note')
+
+      // Everything below is the whole SDK surface a simple plugin needs.
+      async function refresh() {
+        try {
+          // Calls this plugin's own backend. The first call starts it.
+          const answer = await desktime.call('ping', {})
+          value.textContent = new Date(answer.pong * 1000).toLocaleTimeString()
+          note.textContent = '后端已连接'
+        } catch (error) {
+          // A backend that will not start must not take the widget down with
+          // it — say so in the widget and carry on.
+          value.textContent = '—'
+          note.textContent = String(error)
+        }
+      }
+
+      document.getElementById('value').addEventListener('click', refresh)
+
+      // Settings declared in plugin.json are rendered by the host's own
+      // settings window; this is how their values get here, both at startup and
+      // whenever the user changes one.
+      let timer = 0
+
+      function apply(settings) {
+        const seconds = Number(settings.interval) || 2
+        clearInterval(timer)
+        refresh()
+        timer = setInterval(refresh, seconds * 1000)
+      }
+
+      desktime.settings().then(apply)
+      desktime.onSettings(apply)
+
+      // Notifications pushed by the backend (a message with no id) arrive here.
+      desktime.on('tick', (payload) => {
+        note.textContent = JSON.stringify(payload)
+      })
+    </script>
+  </body>
+</html>

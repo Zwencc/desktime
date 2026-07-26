@@ -1,0 +1,43 @@
+{
+  "id": "_template",
+  "name": "示例插件",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "author": "DeskTime",
+  "description": "复制这个目录、改掉 id 和文件夹名，就是一个新插件。",
+
+  "contributes": {
+    "widgets": [
+      {
+        "key": "panel",
+        "name": "示例",
+        "entry": "web/index.html",
+        "size": { "width": 312, "height": 202 },
+        "minSize": { "width": 232, "height": 152 },
+        "resizable": true,
+        "defaultVisible": false,
+        "chrome": { "resize": true }
+      }
+    ],
+    "settings": [
+      {
+        "key": "interval",
+        "label": "刷新间隔",
+        "type": "number",
+        "default": 2,
+        "min": 1,
+        "max": 60,
+        "unit": "秒"
+      }
+    ]
+  },
+
+  "backend": {
+    "command": "python",
+    "args": ["bin/main.py"],
+    "protocol": "jsonrpc-stdio"
+  },
+
+  "permissions": ["storage"],
+  "activation": ["onWidgetVisible"]
+}

@@ -1,0 +1,43 @@
+{
+  "id": "system-monitor",
+  "name": "系统状态监测",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "author": "DeskTime",
+  "description": "CPU、内存、磁盘占用。后端用 Python 采数，前端只负责画。",
+
+  "contributes": {
+    "widgets": [
+      {
+        "key": "panel",
+        "name": "系统状态",
+        "entry": "web/index.html",
+        "size": { "width": 276, "height": 186 },
+        "minSize": { "width": 216, "height": 146 },
+        "resizable": true,
+        "defaultVisible": false,
+        "chrome": { "drag": true, "resize": true, "close": true, "pin": true }
+      }
+    ],
+    "settings": [
+      {
+        "key": "interval",
+        "label": "刷新间隔",
+        "type": "number",
+        "default": 2,
+        "min": 1,
+        "max": 60,
+        "unit": "秒"
+      }
+    ]
+  },
+
+  "backend": {
+    "command": "python",
+    "args": ["bin/main.py"],
+    "protocol": "jsonrpc-stdio"
+  },
+
+  "permissions": ["storage"],
+  "activation": ["onWidgetVisible"]
+}
