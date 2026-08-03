@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "set-window-visibility"
-description = "Allows DeskTime to change widget visibility through the protected native path."
-commands.allow = ["set_window_visibility"]

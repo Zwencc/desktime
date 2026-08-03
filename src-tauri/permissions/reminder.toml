@@ -1,0 +1,13 @@
+[[permission]]
+identifier = "reminder-scheduling"
+description = """
+Allows DeskTime to hand its timing plans to the backend scheduler: the schedule's
+reminders, the clock's plain notices (hourly chime, pomodoro), and stopping or
+snoozing a reminder that is currently ringing.
+"""
+commands.allow = [
+  "sync_reminders",
+  "sync_notices",
+  "stop_reminder",
+  "snooze_reminder",
+]

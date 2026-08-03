@@ -1,0 +1,7 @@
+[[permission]]
+identifier = "browser-widget"
+description = "Allows an isolated browser widget to call the token-bound navigation/playback bridge."
+commands.allow = [
+  "browser_widget_status",
+  "browser_widget_control",
+]

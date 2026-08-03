@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "draft-delete"
-description = "Allows DeskTime to remove a draft file once the note is saved to a real location or discarded."
-commands.allow = ["draft_delete"]

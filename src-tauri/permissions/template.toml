@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "note-templates"
+description = "Allows the notebook and its settings page to list, edit and remove the note templates in the app's templates folder."
+commands.allow = [
+  "template_delete",
+  "template_list",
+  "template_write",
+  "templates_directory",
+]

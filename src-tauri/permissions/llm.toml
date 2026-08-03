@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "llm-access"
+description = "Allows the moo clock to store an API key outside the webview and to ask the configured endpoint for a line."
+commands.allow = [
+  "has_llm_key",
+  "llm_classify",
+  "llm_line",
+  "set_llm_key",
+]

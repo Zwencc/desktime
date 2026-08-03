@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "note-window-v015",
+  "description": "N3 and N2 commands are restricted to the built-in note window.",
+  "windows": ["note"],
+  "permissions": [
+    "note-container",
+    "vault-access"
+  ]
+}

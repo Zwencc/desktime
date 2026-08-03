@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "framework-diagnostics",
+  "description": "Architecture readiness is visible only in settings and developer diagnostics. Those two windows are also the only ones that close by being destroyed rather than hidden, so the destroy permission is scoped to them here rather than granted app-wide.",
+  "windows": ["settings", "devtools"],
+  "permissions": ["framework-status", "core:window:allow-destroy"]
+}

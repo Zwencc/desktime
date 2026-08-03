@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "file-access"
+description = """
+Allows the notebook to work with files on disk that are not notes themselves:
+rename a mapped note so its name and the sidebar agree, delete one through the
+recycle bin so it stays recoverable, and reveal it in the system file manager.
+Reading and writing note contents is not here — that goes through the versioned
+.dtnote container API in note-container.
+"""
+commands.allow = [
+  "rename_path",
+  "move_to_recycle_bin",
+  "open_in_explorer",
+]

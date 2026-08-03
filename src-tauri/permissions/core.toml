@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "core-ipc"
+description = "Allows built-in DeskTime windows to use the versioned DTCore client; it does not grant direct database access."
+commands.allow = ["core_request"]

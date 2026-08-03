@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "dev-diagnostics"
+description = "Allows the developer-mode panel to read the marker file's verdict, background thread status, window geometry and the activity sampler's live snapshot. Read-only: nothing here changes state."
+commands.allow = [
+  "activity_debug_snapshot",
+  "is_dev_mode",
+  "runtime_status",
+  "window_diagnostics",
+]

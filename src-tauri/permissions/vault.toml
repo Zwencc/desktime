@@ -1,0 +1,27 @@
+[[permission]]
+identifier = "vault-access"
+description = """
+Allows only the note window to use the privacy vault, and only through opaque
+session handles: unlock and lock it, list and edit what is inside, move notes in
+and out, and change the password. No command in this list returns key material,
+a derived key or an unwrapped envelope.
+"""
+commands.allow = [
+  "vault_status",
+  "vault_create",
+  "vault_unlock_password",
+  "vault_unlock_recovery",
+  "vault_lock",
+  "vault_list",
+  "vault_read",
+  "vault_write",
+  "vault_write_backup",
+  "vault_reset_password",
+  "vault_create_folder",
+  "vault_create_note",
+  "vault_rename",
+  "vault_move",
+  "vault_delete",
+  "vault_import",
+  "vault_export",
+]

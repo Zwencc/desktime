@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "save-text-file"
-description = "Allows DeskTime to write note contents to a file the user picks in the native save dialog."
-commands.allow = ["save_text_file"]

@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "file-stat"
-description = "Allows DeskTime to check whether a mapped note still exists on disk."
-commands.allow = ["file_stat"]

@@ -1,0 +1,25 @@
+[[permission]]
+identifier = "plugin-host"
+description = "Allows the settings window to list installed plugins, and allows a plugin's own window to use the SDK: its window controls, its namespaced storage, its declared settings, the host clock and theme, and calls to its own backend."
+commands.allow = [
+  "plugin_call",
+  "plugin_list",
+  "plugin_locale",
+  "plugin_log",
+  "plugin_now",
+  "plugin_settings",
+  "plugin_storage_get",
+  "plugin_storage_set",
+  "plugin_theme",
+  "plugin_window",
+  "plugins_directory",
+]
+
+[[permission]]
+identifier = "plugin-management"
+description = "Allows the settings window to reload the plugins from disk and to write the settings a plugin declared. Deliberately not part of `plugin-host`: that one is granted to plugin windows too, and a plugin must not be able to tear down and rebuild its neighbours, or rewrite the values its user chose for it."
+commands.allow = [
+  "plugin_reload",
+  "plugin_set_enabled",
+  "plugin_settings_set",
+]

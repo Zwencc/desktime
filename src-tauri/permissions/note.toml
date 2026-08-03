@@ -1,0 +1,21 @@
+[[permission]]
+identifier = "note-container"
+description = """
+Allows the note window to use only the versioned .dtnote container API: open and
+save a note with the pictures inside it, create one, move or copy a whole note
+for "save as", keep unsaved drafts in the app data directory, and run the
+one-off conversion of pre-v0.1.5 .md notes after the user has approved the plan.
+"""
+commands.allow = [
+  "note_container_status",
+  "note_open",
+  "note_save",
+  "note_create",
+  "note_relocate",
+  "note_migration_scan",
+  "note_migration_execute",
+  "drafts_directory",
+  "draft_read",
+  "draft_write",
+  "draft_delete",
+]

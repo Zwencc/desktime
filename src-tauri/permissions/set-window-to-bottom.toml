@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "set-window-to-bottom"
-description = "Allows DeskTime widget windows to move themselves to the bottom of the Windows Z-order."
-commands.allow = ["set_window_to_bottom"]

@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "plugin-browser-windows",
+  "description": "Browser-type plugin windows show somebody else's website, so this list is deliberately one command long. `browser_widget_control` is the only way such a page can touch its own window, and every call to it carries a token the host handed to the top frame at startup — the window setters are NOT granted here, because if they were, any script on the page could pin, resize or hide the window without a token and the token would be decoration. No plugin-host, no file access, no vault, no activity data, no LLM key. The `remote` list is deliberately SHORTER than the manifest's allowedOrigins: navigating to a login provider has to work, but a login provider has no business holding the control bridge, so it can be reached and cannot call anything. The `plugin.` entries are this app's own protocol handler under the URL Windows actually gives it — see the test in src/plugin/mod.rs.",
+  "windows": ["plugin-browser:*"],
+  "remote": {
+    "urls": [
+      "http://plugin.*",
+      "https://plugin.*",
+      "plugin://*",
+      "https://www.bilibili.com/*",
+      "https://www.youtube.com/*",
+      "https://m.youtube.com/*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "browser-widget"
+  ]
+}

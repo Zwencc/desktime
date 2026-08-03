@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "window-control"
+description = "Allows DeskTime widgets to sink to the bottom of the Windows Z-order and to change widget visibility through the protected native path."
+commands.allow = [
+  "ensure_window",
+  "refresh_tray",
+  "set_window_to_bottom",
+  "set_window_visibility",
+  "sync_shortcuts",
+]

@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "open-in-explorer"
-description = "Allows DeskTime to show a note or the drafts folder in the system file manager."
-commands.allow = ["open_in_explorer"]

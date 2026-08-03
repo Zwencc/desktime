@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "framework-status"
+description = "Reports which v0.1.5 framework modules are scaffolded or ready."
+commands.allow = ["framework_status"]

@@ -1,0 +1,7 @@
+[[permission]]
+identifier = "config-storage"
+description = "Allows every window to read the config file into localStorage at startup and to persist changes back to it."
+commands.allow = [
+  "read_config",
+  "write_config",
+]

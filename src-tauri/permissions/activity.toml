@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "activity-monitor"
+description = "Allows the moo clock to configure the local activity monitor and read its aggregated minutes."
+commands.allow = [
+  "activity_config",
+  "activity_summaries",
+  "clear_activity",
+  "resolve_app_names",
+  "sync_activity_config",
+]

@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "drafts-directory"
-description = "Allows DeskTime to read the path of the app-data folder that holds unsaved drafts."
-commands.allow = ["drafts_directory"]

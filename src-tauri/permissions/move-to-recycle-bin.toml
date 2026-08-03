@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "move-to-recycle-bin"
-description = "Allows DeskTime to delete a note through the recycle bin so it stays recoverable."
-commands.allow = ["move_to_recycle_bin"]

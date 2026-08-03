@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "plugin-windows",
+  "description": "What a third-party plugin window may do. This list is the sandbox: it grants the SDK's own commands and the window controls behind them, and nothing else — no file access, no activity data, no LLM key, no desktop shell. A plugin page that calls read_text_file is refused. The `remote` entry is not a remote origin in any ordinary sense: every one of these URLs is served by this app's own protocol handler, out of the plugin's own folder. It is needed because Tauri decides local-from-remote from the URL the page ended up on, and a plugin page is never on a URL Tauri counts as local — see the test in src/plugin/mod.rs for what that URL actually is and why it is not the one we asked for. It widens nothing: the window list above has to match at the same time.",
+  "windows": [
+    "plugin:*"
+  ],
+  "remote": {
+    "urls": [
+      "http://plugin.*",
+      "https://plugin.*",
+      "plugin://*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-size",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "plugin-host"
+  ]
+}

@@ -1,0 +1,7 @@
+[[permission]]
+identifier = "service-control"
+description = "Allows settings to report background protection and request a one-way repair/install action."
+commands.allow = [
+  "background_status",
+  "repair_background_service",
+]

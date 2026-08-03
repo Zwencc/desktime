@@ -1,0 +1,8 @@
+[[permission]]
+identifier = "desktop-shell"
+description = "Allows the desktop layer to redraw the desktop's own icons and the launcher to open the items it indexes."
+commands.allow = [
+  "desktop_entries",
+  "launch_path",
+  "launcher_index",
+]

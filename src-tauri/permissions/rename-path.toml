@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "rename-path"
-description = "Allows DeskTime to rename a mapped note on disk when it is renamed in the notebook."
-commands.allow = ["rename_path"]
