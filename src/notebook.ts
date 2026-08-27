@@ -1,15 +1,19 @@
 // Notebook model: virtual folders over real files on disk, plus drafts that live
 // as temp files until the user picks a home for them.
 //
-// Only metadata is kept in localStorage. Note bodies never go there — pasted
-// images are inline base64, and a few screenshots are enough to blow past the
-// 5 MB quota, at which point writes fail silently and text is lost. Drafts go to
-// real files under the app data directory; saved notes are read from and written
-// to their own path, which stays the single source of truth for their content.
+// Only metadata is kept in localStorage. Note bodies never go there — a note
+// carries its pictures inside it, and a few screenshots are enough to blow past
+// the 5 MB quota, at which point writes fail silently and text is lost. Drafts
+// are `.dtnote` files under the app data directory; saved notes are read from
+// and written to their own path, which stays the single source of truth for
+// their content.
 
 import { invoke } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
+import { deleteDraft, readDraft as readDraftFile, writeDraft as writeDraftFile } from './api/note'
+import type { NoteDocument, NoteInput } from './api/note'
 import { isTauri } from './env'
+import { languages, locale } from './locales'
 
 export type NodeId = string
 
@@ -61,6 +65,14 @@ const SIDEBAR_KEY = 'desktime.notebook.sidebar'
 const LEGACY_NOTE_KEY = 'desktime.note'
 const DRAFT_FALLBACK_PREFIX = 'desktime.notebook.draft.'
 
+/** The one extension the app reads and writes. */
+export const NOTE_EXTENSION = 'dtnote'
+
+/** A note an earlier version wrote, which only the one-off migrator reads. */
+export function isLegacyNotePath(path: string) {
+  return /\.(?:md|markdown|txt)$/i.test(path)
+}
+
 export const SIDEBAR_MIN_WIDTH = 120
 export const SIDEBAR_MAX_WIDTH = 300
 
@@ -110,19 +122,22 @@ export function saveSidebar(state: SidebarState) {
 // —— Content IO ——
 //
 // The browser prototype (`npm run dev`) has no IPC, so drafts fall back to
-// localStorage there and mapped files are simply unavailable.
+// localStorage there and mapped files are simply unavailable. The fallback
+// keeps text only: pictures are exactly what that quota cannot hold.
 
-export async function readDraft(id: NodeId): Promise<string> {
-  if (!isTauri) return localStorage.getItem(`${DRAFT_FALLBACK_PREFIX}${id}`) ?? ''
-  return await invoke<string>('draft_read', { id })
+export async function readDraft(id: NodeId): Promise<NoteDocument> {
+  if (!isTauri) {
+    return { markdown: localStorage.getItem(`${DRAFT_FALLBACK_PREFIX}${id}`) ?? '', assets: [] }
+  }
+  return await readDraftFile(id)
 }
 
-export async function writeDraft(id: NodeId, contents: string) {
+export async function writeDraft(id: NodeId, document: NoteInput) {
   if (!isTauri) {
-    localStorage.setItem(`${DRAFT_FALLBACK_PREFIX}${id}`, contents)
+    localStorage.setItem(`${DRAFT_FALLBACK_PREFIX}${id}`, document.markdown)
     return
   }
-  await invoke('draft_write', { id, contents })
+  await writeDraftFile(id, document)
 }
 
 export async function deleteDraftFile(id: NodeId) {
@@ -130,15 +145,7 @@ export async function deleteDraftFile(id: NodeId) {
     localStorage.removeItem(`${DRAFT_FALLBACK_PREFIX}${id}`)
     return
   }
-  await invoke('draft_delete', { id })
-}
-
-export async function readFile(path: string) {
-  return await invoke<string>('read_text_file', { path })
-}
-
-export async function writeFile(path: string, contents: string) {
-  await invoke('save_text_file', { path, contents })
+  await deleteDraft(id)
 }
 
 export async function renamePath(from: string, to: string) {
@@ -147,11 +154,6 @@ export async function renamePath(from: string, to: string) {
 
 export async function moveToRecycleBin(path: string) {
   await invoke('move_to_recycle_bin', { path })
-}
-
-export async function fileExists(path: string) {
-  const stat = await invoke<{ exists: boolean }>('file_stat', { path })
-  return stat.exists
 }
 
 export async function openInExplorer(path: string, select: boolean) {
@@ -163,46 +165,77 @@ export async function draftsDirectory() {
   return await invoke<string>('drafts_directory')
 }
 
+// The dialogs offer one format, because the app reads one format. A `.md`
+// picked here would be refused by the backend anyway — that is what
+// `UNSUPPORTED_NOTE_TYPE` is for — and offering it in the filter would only
+// make the refusal look like a bug.
+const NOTE_FILTER = { name: 'DeskTime note', extensions: [NOTE_EXTENSION] }
+
 export async function pickSavePath(suggested: string) {
   if (!isTauri) return null
-  return await save({
-    defaultPath: suggested,
-    filters: [
-      { name: 'Markdown', extensions: ['md'] },
-      { name: 'Text', extensions: ['txt'] },
-    ],
-  })
+  return await save({ defaultPath: suggested, filters: [NOTE_FILTER] })
 }
 
 /** Picks an existing note to map into the tree. */
 export async function pickOpenPath() {
   if (!isTauri) return null
 
-  const selected = await open({
-    multiple: false,
-    filters: [{ name: 'Markdown / Text', extensions: ['md', 'markdown', 'txt'] }],
-  })
+  const selected = await open({ multiple: false, filters: [NOTE_FILTER] })
   return typeof selected === 'string' ? selected : null
 }
 
 // —— Naming ——
 
-const DRAFT_NAME_PATTERN = /^草稿(\d+)$/
+const DRAFT_NUMBER = /(\d+)$/
 
 /**
- * `草稿n`, where n is one past the highest number currently in the draft area.
+ * `<draft>n` in the current language, where n is one past the highest number
+ * currently in the draft area.
+ *
+ * The number is read from a draft named in **any** language, not only the
+ * current one. Someone who made 草稿1 and 草稿2 and then switched to English
+ * would otherwise be handed "Draft 1" — a fresh count running alongside names
+ * that are still on screen.
  *
  * Gaps are not reused — with 草稿1 and 草稿3 present the next one is 草稿4 — and
  * the number does fall back once a draft is deleted. That is the intended
  * behaviour, not an oversight.
  */
 export function nextDraftName(drafts: DraftNode[]) {
+  const prefixes = languages.map((entry) => entry.locale.notebookPanel.draftPrefix)
+
   const highest = drafts.reduce((max, draft) => {
-    const match = DRAFT_NAME_PATTERN.exec(draft.name)
+    if (!prefixes.some((prefix) => draft.name.startsWith(prefix))) return max
+    const match = DRAFT_NUMBER.exec(draft.name)
     return match ? Math.max(max, Number(match[1])) : max
   }, 0)
 
-  return `草稿${highest + 1}`
+  return `${locale().notebookPanel.draftPrefix}${highest + 1}`
+}
+
+// —— Attachments ——
+//
+// A pasted image becomes an entry inside the note itself, so there is no folder
+// to choose and nothing to move when a draft is given a home. All that is left
+// here is getting the bytes out of the browser; noteAssets.ts decides what the
+// entry is called and turns it back into something an `<img>` can show.
+
+/**
+ * A file as base64, via the browser's own decoder.
+ *
+ * `FileReader` does this off the JS thread and without ever materialising the
+ * bytes as JS values — `btoa(String.fromCharCode(...bytes))` would blow the call
+ * stack on anything bigger than a thumbnail.
+ */
+export function readAsBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    // `readAsDataURL` gives `data:<type>;base64,<payload>`; only the payload is
+    // wanted, and the comma cannot appear before it.
+    reader.onload = () => resolve(String(reader.result).slice(String(reader.result).indexOf(',') + 1))
+    reader.onerror = () => reject(reader.error ?? new Error('could not read the file'))
+    reader.readAsDataURL(file)
+  })
 }
 
 export function fileNameOf(path: string) {
@@ -222,7 +255,7 @@ export function joinPath(dir: string, name: string) {
 export function withExtension(name: string, previous: string) {
   if (/\.[A-Za-z0-9]+$/.test(name)) return name
   const match = /\.[A-Za-z0-9]+$/.exec(previous)
-  return `${name}${match ? match[0] : '.md'}`
+  return `${name}${match ? match[0] : `.${NOTE_EXTENSION}`}`
 }
 
 // —— Tree ——
@@ -334,10 +367,10 @@ export async function migrateLegacyNote(tree: NotebookTree): Promise<NotebookTre
   const draft: DraftNode = {
     id: crypto.randomUUID(),
     kind: 'draft',
-    name: '临时记事（旧）',
+    name: locale().notebookPanel.legacyNote,
     updatedAt: Date.now(),
   }
-  await writeDraft(draft.id, legacy)
+  await writeDraft(draft.id, { markdown: legacy, assets: [] })
 
   return { ...tree, drafts: [...tree.drafts, draft] }
 }

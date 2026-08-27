@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { EditorSelection, EditorState } from '@codemirror/state'
+import { Compartment, EditorSelection, EditorState } from '@codemirror/state'
 import {
   EditorView,
   drawSelection,
@@ -13,17 +13,10 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { Bold, Eye, Heading1, Italic, List, ListTodo, PenLine } from 'lucide-react'
 import { renderMarkdown } from './markdown'
+import { imagePreviews } from './noteImages'
+import { emptyAssets, type AssetUrls } from './noteAssets'
+import { useLocale } from './locales'
 
-const text = {
-  bold: '加粗',
-  italic: '斜体',
-  heading: '标题',
-  bullet: '无序列表',
-  checklist: '待办项',
-  preview: '预览',
-  edit: '编辑',
-  chars: '字',
-}
 
 // Markdown syntax colours tuned for DeskTime's light glass panel.
 const markdownHighlight = HighlightStyle.define([
@@ -101,27 +94,52 @@ function prefixLines(view: EditorView, prefix: string) {
   view.focus()
 }
 
-// Insert a pasted image as an inline base64 data URI so it travels with the note.
-function insertPastedImage(view: EditorView, file: File) {
-  const reader = new FileReader()
-  reader.onload = () => {
-    const url = typeof reader.result === 'string' ? reader.result : ''
-    if (!url) return
-    const snippet = `\n![image](${url})\n`
-    const pos = view.state.selection.main.head
+/**
+ * Saves a pasted image and links to it.
+ *
+ * It used to be inlined as a base64 data URI, which meant a 2 MB screenshot
+ * became 2.7 MB of markdown *text* that this editor then had to handle as one
+ * very long line. The note now holds the picture as its own entry in the
+ * container and the text holds a one-line reference to it.
+ *
+ * The link lands where the caret was when the paste happened, not where it is
+ * when the write finishes: writing goes to disk and back, and the user may well
+ * have carried on typing.
+ */
+function insertPastedImage(view: EditorView, file: File, save: ImageSaver) {
+  const at = view.state.selection.main.head
+
+  void (async () => {
+    const reference = await save(file)
+    if (!reference) return
+
+    // The document may be shorter than it was — switching note while the write
+    // was in flight replaces it wholesale — and dispatching past the end throws.
+    const from = Math.min(at, view.state.doc.length)
+    const snippet = `\n![${file.name}](${reference})\n`
     view.dispatch({
-      changes: { from: pos, insert: snippet },
-      selection: { anchor: pos + snippet.length },
+      changes: { from, insert: snippet },
+      selection: { anchor: from + snippet.length },
       userEvent: 'input',
     })
-  }
-  reader.readAsDataURL(file)
+  })()
 }
+
+/**
+ * Takes an image into the open note and answers with the path to link to, or
+ * null when it could not be taken. Supplied by whoever owns the note, because
+ * only they know which pictures it already holds.
+ */
+export type ImageSaver = (file: File) => Promise<string | null>
 
 type NoteEditorProps = {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  /** The open note's pictures, for showing them in place of their markdown. */
+  assets?: AssetUrls
+  /** Omitted where there is nowhere to put an image; pasting one then does nothing. */
+  onSaveImage?: ImageSaver
   /** Ctrl+S. File actions and save status live in the notebook shell. */
   onSave: () => void
   toolbarLead?: ReactNode
@@ -133,24 +151,42 @@ export function NoteEditor({
   value,
   onChange,
   placeholder,
+  assets = emptyAssets,
+  onSaveImage,
   onSave,
   toolbarLead,
   toolbarExtra,
   footerExtra,
 }: NoteEditorProps) {
+  const text = useLocale().editor
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   const saveRef = useRef(onSave)
+  // Through a ref: the editor is built once, and this prop changes every time
+  // the user switches note.
+  const saveImageRef = useRef(onSaveImage)
   // Captured once for the initial editor state; live updates flow through props.
   const initialDocRef = useRef(value)
   const placeholderRef = useRef(placeholder ?? '')
+  // Inline image previews have to be rebuilt when the note's pictures change,
+  // and the editor itself is built once — so they go in a compartment, which is
+  // CodeMirror's way of swapping one extension without touching the rest of the
+  // configuration. The map is captured for the initial state the same way the
+  // document is, and every later value arrives through the effect.
+  const imagesRef = useRef(new Compartment())
+  const initialAssetsRef = useRef(assets)
+  // The undo stack goes in a compartment for one reason: replacing it is the
+  // only way to throw it away, and it has to be thrown away when the document
+  // is replaced from outside.
+  const historyRef = useRef(new Compartment())
 
   const [charCount, setCharCount] = useState(value.length)
   const [mode, setMode] = useState<'edit' | 'preview'>('edit')
 
   onChangeRef.current = onChange
   saveRef.current = onSave
+  saveImageRef.current = onSaveImage
 
   // Create the editor once; React state stays the persistence source of truth.
   useEffect(() => {
@@ -161,11 +197,12 @@ export function NoteEditor({
       state: EditorState.create({
         doc: initialDocRef.current,
         extensions: [
-          history(),
+          historyRef.current.of(history()),
           drawSelection(),
           EditorView.lineWrapping,
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(markdownHighlight),
+          imagesRef.current.of(imagePreviews(initialAssetsRef.current)),
           editorTheme,
           cmPlaceholder(placeholderRef.current),
           keymap.of([
@@ -179,9 +216,22 @@ export function NoteEditor({
             paste(event, target) {
               const files = event.clipboardData?.files
               const image = files && Array.from(files).find((file) => file.type.startsWith('image/'))
-              if (!image) return false
+              const save = saveImageRef.current
+              if (!image || !save) return false
               event.preventDefault()
-              insertPastedImage(target, image)
+              insertPastedImage(target, image, save)
+              return true
+            },
+            // Dropping an image is the same operation with a different gesture.
+            // The window-level guard in NotebookPanel keeps unclaimed drops from
+            // navigating the webview; this claims the ones aimed at the editor.
+            drop(event, target) {
+              const files = event.dataTransfer?.files
+              const image = files && Array.from(files).find((file) => file.type.startsWith('image/'))
+              const save = saveImageRef.current
+              if (!image || !save) return false
+              event.preventDefault()
+              insertPastedImage(target, image, save)
               return true
             },
           }),
@@ -204,6 +254,17 @@ export function NoteEditor({
     }
   }, [])
 
+  // A new note, or one more picture in this one: either way the decorations
+  // have to be rebuilt against the map they resolve through.
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+
+    view.dispatch({
+      effects: imagesRef.current.reconfigure(imagePreviews(assets)),
+    })
+  }, [assets])
+
   // Reconcile external changes (switching notes, clearing, cross-window sync).
   useEffect(() => {
     const view = viewRef.current
@@ -211,6 +272,11 @@ export function NoteEditor({
     const current = view.state.doc.toString()
     if (current === value) return
     view.dispatch({ changes: { from: 0, to: current.length, insert: value } })
+    // The undo stack belonged to the note that was just replaced. Left alone,
+    // one Ctrl+Z pulls the previous note's text back into this one — and when
+    // the previous note was a private one that has just been locked away, that
+    // undoes the locking too.
+    view.dispatch({ effects: historyRef.current.reconfigure(history()) })
     setCharCount(value.length)
   }, [value])
 
@@ -291,7 +357,7 @@ export function NoteEditor({
         <div
           className="note-preview"
           // Sanitized in renderMarkdown (DOMPurify); only inline base64 images pass through.
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }}
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(value, assets) }}
         />
       )}
 

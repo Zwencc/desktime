@@ -1,9 +1,16 @@
 // The notebook's file tree.
 //
-// Two regions with different rules: a pinned drafts area for notes that have no
-// home on disk yet, and the virtual folder tree of saved files below it. Only
-// the tree takes part in drag-and-drop, and dragging only ever rearranges the
-// app's own view — the folders do not exist on disk.
+// Three regions with different rules: a pinned drafts area for notes that have
+// no home on disk yet, the virtual folder tree of saved files below it, and the
+// privacy vault below that. Only the file tree takes part in drag-and-drop, and
+// dragging only ever rearranges the app's own view — the folders do not exist on
+// disk.
+//
+// **While the vault is locked its region is a header and nothing else.** Not a
+// greyed-out list, not a count, not a name: the file names are the private part
+// ("resignation-plan" says the thing before it is opened), so a locked vault has
+// nothing to show. Everything below comes from a `vault_list` that only exists
+// while a session does, and it goes when the session does.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { DragEvent, MouseEvent } from 'react'
@@ -19,6 +26,10 @@ import {
   FolderPlus,
   Search,
 } from 'lucide-react'
+import { Lock, ShieldCheck } from 'lucide-react'
+import type { VaultEntry } from './api/vault'
+import { useLocale } from './locales'
+import { type Template, listTemplates } from './templates'
 import {
   type NodeId,
   type NotebookTree,
@@ -27,18 +38,31 @@ import {
   isDescendant,
 } from './notebook'
 
-const text = {
-  search: '搜索',
-  newFile: '新建文件',
-  newFolder: '新建文件夹',
-  drafts: '草稿',
-  rename: '重命名',
-  delete: '删除',
-  reveal: '在资源管理器中显示',
-  missing: '文件已丢失',
-  unsaved: '未保存',
-  empty: '还没有已保存的文件',
-  webOnly: '文件保存仅桌面版可用',
+
+/**
+ * The privacy vault region, or `null` where there is no backend to hold one.
+ *
+ * `entries` is empty whenever `unlocked` is false, and that is not a convention
+ * to remember — the frontend has no way to produce them without a session.
+ */
+export type VaultArea = {
+  initialized: boolean
+  unlocked: boolean
+  entries: VaultEntry[]
+  activeId: string | null
+  expanded: string[]
+  onOpen: () => void
+  onLock: () => void
+  onSelect: (entryId: string) => void
+  onToggleExpanded: (entryId: string) => void
+  onCreateNote: (parentId: string | null) => void
+  onCreateFolder: (parentId: string | null) => void
+  onRename: (entryId: string, name: string) => void
+  onDelete: (entryId: string) => void
+  /** The one way out, and the only way a private note becomes readable again. */
+  onExport: (entryId: string) => void
+  /** Moves a plain note or a whole folder of them in. */
+  onImport: (nodeId: NodeId) => void
 }
 
 type DropMode = 'before' | 'after' | 'into'
@@ -55,13 +79,16 @@ type NotebookSidebarProps = {
   expanded: NodeId[]
   canUseFiles: boolean
   onSelect: (id: NodeId) => void
-  onCreateFile: () => void
+  onCreateFile: (template?: Template) => void
+  /** New file inside this folder; asks for a path, because folders hold real files. */
+  onCreateFileIn: (parentId: NodeId) => void
   onCreateFolder: () => void
   onRename: (id: NodeId, name: string) => void
   onDelete: (id: NodeId) => void
   onMove: (nodeId: NodeId, parentId: NodeId | null, beforeId: NodeId | null) => void
   onReveal: (id: NodeId) => void
   onToggleExpanded: (id: NodeId) => void
+  vault: VaultArea | null
 }
 
 export function NotebookSidebar({
@@ -72,16 +99,30 @@ export function NotebookSidebar({
   canUseFiles,
   onSelect,
   onCreateFile,
+  onCreateFileIn,
   onCreateFolder,
   onRename,
   onDelete,
   onMove,
   onReveal,
   onToggleExpanded,
+  vault,
 }: NotebookSidebarProps) {
+  const strings = useLocale()
+  const notebookText = strings.notebook
+  const text = strings.sidebar
   const [query, setQuery] = useState('')
   const [renaming, setRenaming] = useState<{ id: NodeId; value: string } | null>(null)
   const [menu, setMenu] = useState<{ id: NodeId; x: number; y: number } | null>(null)
+  // Its own state rather than a variant of `menu`: this one hangs off a toolbar
+  // button rather than a node, and shares nothing with it but the styling.
+  const [templateMenu, setTemplateMenu] = useState<{ x: number; y: number } | null>(null)
+  const [templates, setTemplates] = useState<Template[]>([])
+  // The vault keeps its own rename and menu state. Its ids come from an
+  // encrypted index rather than from the tree, and keeping the two apart is what
+  // stops a menu action ever being routed at the wrong half of the sidebar.
+  const [vaultRenaming, setVaultRenaming] = useState<{ id: string; value: string } | null>(null)
+  const [vaultMenu, setVaultMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [dragId, setDragId] = useState<NodeId | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const renameRef = useRef<HTMLInputElement>(null)
@@ -93,19 +134,106 @@ export function NotebookSidebar({
   }, [renaming?.id])
 
   useEffect(() => {
-    if (!menu) return
+    if (!menu && !templateMenu && !vaultMenu) return
     function close() {
       setMenu(null)
+      setTemplateMenu(null)
+      setVaultMenu(null)
     }
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
-  }, [menu])
+  }, [menu, templateMenu, vaultMenu])
+
+  function commitVaultRename() {
+    if (!vaultRenaming) return
+    const value = vaultRenaming.value.trim()
+    setVaultRenaming(null)
+    if (value) vault?.onRename(vaultRenaming.id, value)
+  }
+
+  function renderVaultRow(entry: VaultEntry, depth: number) {
+    if (!vault) return null
+    const isFolder = entry.kind === 'folder'
+    const isOpen = vault.expanded.includes(entry.id)
+    const classes = ['tree-row']
+    if (entry.id === vault.activeId) classes.push('active')
+    if (entry.kind === 'backup') classes.push('missing')
+
+    return (
+      <div key={entry.id}>
+        <div
+          className={classes.join(' ')}
+          style={{ paddingLeft: 6 + depth * 12 }}
+          onClick={() => (isFolder ? vault.onToggleExpanded(entry.id) : vault.onSelect(entry.id))}
+          onDoubleClick={() => setVaultRenaming({ id: entry.id, value: entry.name })}
+          onContextMenu={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setVaultMenu({ id: entry.id, x: event.clientX, y: event.clientY })
+          }}
+        >
+          <span className="tree-icon">
+            {isFolder ? (
+              isOpen ? (
+                <ChevronDown size={12} aria-hidden="true" />
+              ) : (
+                <ChevronRight size={12} aria-hidden="true" />
+              )
+            ) : null}
+          </span>
+          <span className="tree-icon">
+            {isFolder ? (
+              isOpen ? (
+                <FolderOpen size={13} aria-hidden="true" />
+              ) : (
+                <Folder size={13} aria-hidden="true" />
+              )
+            ) : (
+              <FileText size={13} aria-hidden="true" />
+            )}
+          </span>
+
+          {vaultRenaming?.id === entry.id ? (
+            <input
+              className="tree-rename"
+              value={vaultRenaming.value}
+              onChange={(event) => setVaultRenaming({ id: entry.id, value: event.target.value })}
+              onBlur={commitVaultRename}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commitVaultRename()
+                if (event.key === 'Escape') setVaultRenaming(null)
+              }}
+              autoFocus
+            />
+          ) : (
+            <span className="tree-name">{entry.name}</span>
+          )}
+        </div>
+
+        {isFolder &&
+          isOpen &&
+          vault.entries
+            .filter((child) => child.parentId === entry.id)
+            .map((child) => renderVaultRow(child, depth + 1))}
+      </div>
+    )
+  }
 
   function commitRename() {
     if (!renaming) return
     const value = renaming.value.trim()
     setRenaming(null)
     if (value) onRename(renaming.id, value)
+  }
+
+  // Read on open rather than on mount: templates are files, and the folder may
+  // have been edited since this window started.
+  function openTemplateMenu(event: MouseEvent<HTMLElement>) {
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    void listTemplates().then(setTemplates)
+    setTemplateMenu({ x: rect.left, y: rect.bottom + 4 })
   }
 
   function openMenu(event: MouseEvent<HTMLElement>, id: NodeId) {
@@ -280,6 +408,25 @@ export function NotebookSidebar({
             <AlertTriangle size={12} aria-hidden="true" className="tree-warn" />
           )}
           {dirtyIds.has(node.id) && <span className="tree-dot" title={text.unsaved} />}
+
+          {/* Hidden until the row is hovered, so a tree of folders is not a
+              column of buttons. The context menu carries the same action for
+              anyone who does not find it. */}
+          {isFolder && canUseFiles && (
+            <button
+              type="button"
+              className="tree-add"
+              title={text.newFileHere}
+              onClick={(event) => {
+                // The row itself toggles the folder; this must not.
+                event.stopPropagation()
+                if (!isOpen) onToggleExpanded(node.id)
+                onCreateFileIn(node.id)
+              }}
+            >
+              <FilePlus size={12} aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         {isFolder &&
@@ -311,13 +458,26 @@ export function NotebookSidebar({
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <button className="icon-button" type="button" title={text.newFile} onClick={onCreateFile}>
+        <button
+          className="icon-button"
+          type="button"
+          title={notebookText.newFile}
+          onClick={() => onCreateFile()}
+        >
           <FilePlus size={14} aria-hidden="true" />
         </button>
         <button
           className="icon-button"
           type="button"
-          title={text.newFolder}
+          title={notebookText.newFromTemplate}
+          onClick={openTemplateMenu}
+        >
+          <ChevronDown size={14} aria-hidden="true" />
+        </button>
+        <button
+          className="icon-button"
+          type="button"
+          title={notebookText.newFolder}
           onClick={onCreateFolder}
         >
           <FolderPlus size={14} aria-hidden="true" />
@@ -364,6 +524,62 @@ export function NotebookSidebar({
         </div>
       )}
 
+      {vault && (
+        <div className="sidebar-group vault-group">
+          <div className="sidebar-head vault-head">
+            <button type="button" className="vault-head-button" onClick={vault.onOpen}>
+              {vault.unlocked ? (
+                <ShieldCheck size={12} aria-hidden="true" />
+              ) : (
+                <Lock size={12} aria-hidden="true" />
+              )}
+              <span>{text.vault}</span>
+            </button>
+            {vault.unlocked && (
+              <>
+                <button
+                  type="button"
+                  className="tree-add"
+                  title={notebookText.newFile}
+                  onClick={() => vault.onCreateNote(null)}
+                >
+                  <FilePlus size={12} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="tree-add"
+                  title={notebookText.newFolder}
+                  onClick={() => vault.onCreateFolder(null)}
+                >
+                  <FolderPlus size={12} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="tree-add"
+                  title={text.vaultLock}
+                  onClick={vault.onLock}
+                >
+                  <Lock size={12} aria-hidden="true" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Nothing at all while it is locked. Not even how many. */}
+          {vault.unlocked &&
+            (needle
+              ? vault.entries
+                  .filter((entry) => entry.name.toLowerCase().includes(needle))
+                  .map((entry) => renderVaultRow(entry, 0))
+              : vault.entries
+                  .filter((entry) => entry.parentId === null)
+                  .map((entry) => renderVaultRow(entry, 0)))}
+          {vault.unlocked && vault.entries.length === 0 && (
+            <p className="sidebar-empty">{text.vaultEmpty}</p>
+          )}
+        </div>
+      )}
+
       {/* The blank area is the drop zone that files a node back at the root. */}
       <div
         className={dropTarget?.id === null ? 'sidebar-tree drop-root' : 'sidebar-tree'}
@@ -395,8 +611,19 @@ export function NotebookSidebar({
               setMenu(null)
             }}
           >
-            {text.rename}
+            {strings.common.rename}
           </button>
+          {canUseFiles && tree.folders.some((folder) => folder.id === menu.id) && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateFileIn(menu.id)
+                setMenu(null)
+              }}
+            >
+              {text.newFileHere}
+            </button>
+          )}
           {tree.files.some((file) => file.id === menu.id) && (
             <button
               type="button"
@@ -408,6 +635,17 @@ export function NotebookSidebar({
               {text.reveal}
             </button>
           )}
+          {vault?.unlocked && (
+            <button
+              type="button"
+              onClick={() => {
+                vault.onImport(menu.id)
+                setMenu(null)
+              }}
+            >
+              {text.vaultMoveIn}
+            </button>
+          )}
           <button
             type="button"
             className="danger"
@@ -416,11 +654,99 @@ export function NotebookSidebar({
               setMenu(null)
             }}
           >
-            {text.delete}
+            {strings.common.delete}
           </button>
         </div>,
         document.body,
       )}
+
+      {vaultMenu &&
+        vault &&
+        createPortal(
+          <div className="sidebar-menu" style={{ left: vaultMenu.x, top: vaultMenu.y }}>
+            <button
+              type="button"
+              onClick={() => {
+                const entry = vault.entries.find((held) => held.id === vaultMenu.id)
+                if (entry) setVaultRenaming({ id: entry.id, value: entry.name })
+                setVaultMenu(null)
+              }}
+            >
+              {strings.common.rename}
+            </button>
+            {vault.entries.some(
+              (entry) => entry.id === vaultMenu.id && entry.kind === 'folder',
+            ) && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vault.onCreateNote(vaultMenu.id)
+                    setVaultMenu(null)
+                  }}
+                >
+                  {text.newFileHere}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vault.onCreateFolder(vaultMenu.id)
+                    setVaultMenu(null)
+                  }}
+                >
+                  {notebookText.newFolder}
+                </button>
+              </>
+            )}
+            {vault.entries.some(
+              (entry) => entry.id === vaultMenu.id && entry.kind !== 'folder',
+            ) && (
+              <button
+                type="button"
+                onClick={() => {
+                  vault.onExport(vaultMenu.id)
+                  setVaultMenu(null)
+                }}
+              >
+                {text.vaultMoveOut}
+              </button>
+            )}
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                vault.onDelete(vaultMenu.id)
+                setVaultMenu(null)
+              }}
+            >
+              {strings.common.delete}
+            </button>
+          </div>,
+          document.body,
+        )}
+
+      {templateMenu &&
+        createPortal(
+          <div
+            className="sidebar-menu"
+            style={{ left: templateMenu.x, top: templateMenu.y }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {templates.map((template) => (
+              <button
+                key={template.name}
+                type="button"
+                onClick={() => {
+                  onCreateFile(template)
+                  setTemplateMenu(null)
+                }}
+              >
+                {template.name}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
