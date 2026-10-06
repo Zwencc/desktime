@@ -16,49 +16,39 @@ import {
   syncReminders,
 } from './reminder'
 import {
-  type RepeatKind,
   type ScheduleItem,
-  REPEATS,
-  REPEAT_LABEL,
-  TAGS,
-  TAG_MAP,
   dueTime,
   nextOccurrence,
   readSchedule,
+  repeatLabel,
   saveSchedule,
+  tagMapOf,
+  tagStore,
+  tagsOf,
 } from './schedule'
+import { type DayMark, MonthCalendar } from './MonthCalendar'
 import { ScheduleEditor } from './ScheduleEditor'
 import { appTimeZone, subscribeTimeZone, today, weekRange } from './time'
+import { locale, useLocale } from './locales'
 
-type ViewKey = 'today' | 'week' | 'all'
+type ViewKey = 'today' | 'week' | 'all' | 'month'
 
-const text = {
-  newSchedule: '新日程',
-  add: '添加',
-  done: '标记完成',
-  undone: '标记未完成',
-  delete: '删除',
-  today: '今日',
-  week: '本周',
-  all: '全部',
-  allTags: '全部',
-  empty: '暂无日程',
-  overdue: '已逾期',
-  edit: '编辑日程',
-  muteOn: '提醒已开启，点击静音',
-  muteOff: '提醒已静音，点击开启',
-  stop: '停止提醒',
-  snooze: '稍后',
-  minutes: (value: number) => `${value} 分`,
-  complete: '完成',
-  moreBanners: (value: number) => `还有 ${value} 条提醒`,
+/** The chosen view outlives a restart; it is how the widget is being used. */
+const VIEW_KEY = 'desktime.schedule.view'
+
+
+/** A function, not a constant: the labels are translated, and a module-level
+ *  array would freeze whichever language was current when this file was first
+ *  imported. */
+function views(): { key: ViewKey; label: string }[] {
+  const text = locale().schedule
+  return [
+    { key: 'month', label: text.month },
+    { key: 'today', label: text.today },
+    { key: 'week', label: text.week },
+    { key: 'all', label: text.all },
+  ]
 }
-
-const VIEWS: { key: ViewKey; label: string }[] = [
-  { key: 'today', label: text.today },
-  { key: 'week', label: text.week },
-  { key: 'all', label: text.all },
-]
 
 /** Banners beyond this stay collapsed so the list keeps its room. */
 const MAX_BANNERS = 2
@@ -73,23 +63,45 @@ function advanceItem(item: ScheduleItem): ScheduleItem {
 }
 
 export function SchedulePanel() {
+  const strings = useLocale()
+  const text = strings.schedule
   const [items, setItems] = useState<ScheduleItem[]>(readSchedule)
-  const [draftTitle, setDraftTitle] = useState('')
-  const [draftDate, setDraftDate] = useState(today)
-  const [draftTime, setDraftTime] = useState('09:00')
-  const [draftRepeat, setDraftRepeat] = useState<RepeatKind>('none')
-  const [draftTag, setDraftTag] = useState('')
-  const [view, setView] = useState<ViewKey>('today')
+  const [view, setView] = useState<ViewKey>(
+    () => (localStorage.getItem(VIEW_KEY) as ViewKey | null) ?? 'month',
+  )
+  const [month, setMonth] = useState(() => today().slice(0, 7))
+  const [selectedDay, setSelectedDay] = useState(today)
   const [tagFilter, setTagFilter] = useState('all')
   const [muted, setMuted] = useState(readMuted)
   const [banners, setBanners] = useState<ReminderJob[]>([])
   const [snoozeFor, setSnoozeFor] = useState<string | null>(null)
   const [editing, setEditing] = useState<ScheduleItem | null>(null)
   const zone = useSyncExternalStore(subscribeTimeZone, appTimeZone)
+  const storedTags = useSyncExternalStore(tagStore.subscribe, tagStore.snapshot)
+
+  const tags = useMemo(() => tagsOf(storedTags), [storedTags])
+  const tagMap = useMemo(() => tagMapOf(tags), [tags])
 
   useEffect(() => {
     saveSchedule(items)
   }, [items])
+
+  // A tag deleted in settings must not leave a dangling key on the items that
+  // used it. Doing it here rather than in the settings window is what keeps the
+  // two from fighting: this widget owns `items` and writes them on every change,
+  // so an edit made anywhere else would be overwritten on the next keystroke.
+  useEffect(() => {
+    function dangling(item: ScheduleItem) {
+      return item.tag !== undefined && !tagMap.has(item.tag)
+    }
+
+    setItems((current) =>
+      current.some(dangling)
+        ? current.map((item) => (dangling(item) ? { ...item, tag: undefined } : item))
+        : current,
+    )
+    setTagFilter((current) => (current !== 'all' && !tagMap.has(current) ? 'all' : current))
+  }, [tagMap])
 
   // The backend owns the clock, so every change to the plan is pushed over.
   // A zone change matters too: it moves every trigger point.
@@ -128,31 +140,49 @@ export function SchedulePanel() {
         if (tagFilter !== 'all' && item.tag !== tagFilter) return false
         if (view === 'today') return item.date <= todayDate
         if (view === 'week') return item.date >= start && item.date <= end
+        if (view === 'month') return item.date === selectedDay
         return true
       })
       .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
-  }, [items, view, tagFilter])
+  }, [items, view, tagFilter, selectedDay])
+
+  // One mark per day rather than one per item: the colour of the earliest undone
+  // item, and how many there are in total. A month then tells you where the work
+  // is without opening any of it, and without running out at three dots.
+  const marks = useMemo(() => {
+    const byDay: Record<string, DayMark> = {}
+    items
+      .filter((item) => !item.done)
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .forEach((item) => {
+        const mark = byDay[item.date]
+        if (mark) {
+          mark.count += 1
+          return
+        }
+
+        byDay[item.date] = {
+          color: (item.tag && tagMap.get(item.tag)?.color) || 'var(--accent)',
+          count: 1,
+        }
+      })
+    return byDay
+  }, [items, tagMap])
 
   const remaining = items.filter((item) => !item.done).length
 
-  function addItem() {
-    const title = draftTitle.trim()
-    if (!title) return
-
-    setItems((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        title,
-        date: draftDate,
-        time: draftTime,
-        done: false,
-        repeat: draftRepeat,
-        tag: draftTag || undefined,
-        reminder: readReminderDefaults(),
-      },
-    ])
-    setDraftTitle('')
+  // "New" is the editor opened on an item that is not in the list yet, which is
+  // also how `saveItem` below tells the two apart — no second piece of state.
+  function openNewItem() {
+    setEditing({
+      id: crypto.randomUUID(),
+      title: '',
+      date: view === 'month' ? selectedDay : today(),
+      time: '09:00',
+      done: false,
+      repeat: 'none',
+      reminder: readReminderDefaults(),
+    })
   }
 
   function toggleItem(id: string) {
@@ -165,7 +195,11 @@ export function SchedulePanel() {
   }
 
   function saveItem(next: ScheduleItem) {
-    setItems((current) => current.map((item) => (item.id === next.id ? next : item)))
+    setItems((current) =>
+      current.some((item) => item.id === next.id)
+        ? current.map((item) => (item.id === next.id ? next : item))
+        : [...current, next],
+    )
     setEditing(null)
   }
 
@@ -248,7 +282,7 @@ export function SchedulePanel() {
                           type="button"
                           onClick={() => snoozeBanner(job.id, minutes)}
                         >
-                          {text.minutes(minutes)}
+                          {text.minutesShort(minutes)}
                         </button>
                       ))}
                     </div>
@@ -272,35 +306,21 @@ export function SchedulePanel() {
 
       <div className="schedule-controls" data-no-drag>
         <div className="view-tabs">
-          {VIEWS.map((entry) => (
+          {views().map((entry) => (
             <button
               key={entry.key}
               type="button"
               className={view === entry.key ? 'view-tab active' : 'view-tab'}
-              onClick={() => setView(entry.key)}
+              onClick={() => {
+                setView(entry.key)
+                localStorage.setItem(VIEW_KEY, entry.key)
+              }}
             >
               {entry.label}
             </button>
           ))}
         </div>
-        <div className="tag-filter">
-          <button
-            type="button"
-            className={tagFilter === 'all' ? 'tag-dot all active' : 'tag-dot all'}
-            title={text.allTags}
-            onClick={() => setTagFilter('all')}
-          />
-          {TAGS.map((tag) => (
-            <button
-              key={tag.key}
-              type="button"
-              className={tagFilter === tag.key ? 'tag-dot active' : 'tag-dot'}
-              style={{ background: tag.color }}
-              title={tag.label}
-              onClick={() => setTagFilter((current) => (current === tag.key ? 'all' : tag.key))}
-            />
-          ))}
-        </div>
+        <div className="toolbar-spacer" />
         <button
           type="button"
           className={muted ? 'icon-button' : 'icon-button active'}
@@ -309,51 +329,54 @@ export function SchedulePanel() {
         >
           {muted ? <BellOff size={14} aria-hidden="true" /> : <Bell size={14} aria-hidden="true" />}
         </button>
+        <button type="button" className="add-button" onClick={openNewItem} title={text.newSchedule}>
+          <Plus size={16} aria-hidden="true" />
+        </button>
+        {/* Last in the row so it wraps onto a line of its own: four named pills
+            already outrun the width the four dots they replaced fitted into,
+            and the tag list is now something the user can add to. */}
+        <div className="tag-filter">
+          <button
+            type="button"
+            className={tagFilter === 'all' ? 'tag-pill all active' : 'tag-pill all'}
+            onClick={() => setTagFilter('all')}
+          >
+            {text.allTags}
+          </button>
+          {tags.map((tag) => (
+            <button
+              key={tag.key}
+              type="button"
+              className={tagFilter === tag.key ? 'tag-pill active' : 'tag-pill'}
+              // The colour is the tag's own, so it stays an inline style; what
+              // it means (fill when on, outline when off) is in the stylesheet.
+              style={
+                tagFilter === tag.key
+                  ? { background: tag.color, borderColor: tag.color }
+                  : { color: tag.color, borderColor: tag.color }
+              }
+              onClick={() => setTagFilter((current) => (current === tag.key ? 'all' : tag.key))}
+            >
+              {tag.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="schedule-form" data-no-drag>
-        <div className="form-row">
-          <input
-            value={draftTitle}
-            onChange={(event) => setDraftTitle(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') addItem()
-            }}
-            placeholder={text.newSchedule}
-          />
-          <button type="button" className="add-button" onClick={addItem} title={text.add}>
-            <Plus size={17} aria-hidden="true" />
-          </button>
-        </div>
-        <div className="form-row">
-          <input type="time" value={draftTime} onChange={(event) => setDraftTime(event.target.value)} />
-          <input type="date" value={draftDate} onChange={(event) => setDraftDate(event.target.value)} />
-          <select
-            value={draftRepeat}
-            onChange={(event) => setDraftRepeat(event.target.value as RepeatKind)}
-            title="重复"
-          >
-            {REPEATS.map((repeat) => (
-              <option key={repeat.key} value={repeat.key}>
-                {repeat.label}
-              </option>
-            ))}
-          </select>
-          <select value={draftTag} onChange={(event) => setDraftTag(event.target.value)} title="标签">
-            <option value="">无标签</option>
-            {TAGS.map((tag) => (
-              <option key={tag.key} value={tag.key}>
-                {tag.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {view === 'month' && (
+        <MonthCalendar
+          month={month}
+          selected={selectedDay}
+          marks={marks}
+          onSelect={setSelectedDay}
+          onMonth={setMonth}
+        />
+      )}
 
       <div className="schedule-list" data-no-drag>
         {orderedItems.length === 0 && <p className="schedule-empty">{text.empty}</p>}
         {orderedItems.map((item) => {
-          const tag = item.tag ? TAG_MAP.get(item.tag) : undefined
+          const tag = item.tag ? tagMap.get(item.tag) : undefined
           const overdue = !item.done && dueTime(item) < now
           const classes = ['schedule-item']
           if (item.done) classes.push('done')
@@ -369,7 +392,9 @@ export function SchedulePanel() {
                 {item.done ? <Check size={14} aria-hidden="true" /> : <Bell size={13} aria-hidden="true" />}
               </button>
               {tag && (
-                <span className="item-tag" style={{ background: tag.color }} title={tag.label} />
+                <span className="tag-chip" style={{ background: tag.color }}>
+                  {tag.label}
+                </span>
               )}
               {/* A <button> may not wrap headings, so this is a div with the
                   button role — which nonDragSelector already excludes from drags. */}
@@ -388,7 +413,7 @@ export function SchedulePanel() {
                   {item.date} {item.time}
                   {item.repeat && item.repeat !== 'none' && (
                     <span className="item-repeat">
-                      <Repeat size={11} aria-hidden="true" /> {REPEAT_LABEL.get(item.repeat)}
+                      <Repeat size={11} aria-hidden="true" /> {repeatLabel(item.repeat)}
                     </span>
                   )}
                   {overdue && <span className="item-overdue">{text.overdue}</span>}
@@ -398,7 +423,7 @@ export function SchedulePanel() {
                 className="icon-button"
                 type="button"
                 onClick={() => deleteItem(item.id)}
-                title={text.delete}
+                title={strings.common.delete}
               >
                 <Trash2 size={14} aria-hidden="true" />
               </button>
@@ -409,13 +434,14 @@ export function SchedulePanel() {
 
       <div className="schedule-footer" data-no-drag>
         <span>
-          {remaining > 0 ? `${remaining} 项未完成` : '全部完成 🎉'}
+          {remaining > 0 ? locale().scheduleData.remaining(remaining) : locale().scheduleData.allDone}
         </span>
       </div>
 
       {editing && (
         <ScheduleEditor
           item={editing}
+          isNew={!items.some((item) => item.id === editing.id)}
           onSave={saveItem}
           onDelete={deleteItem}
           onClose={() => setEditing(null)}

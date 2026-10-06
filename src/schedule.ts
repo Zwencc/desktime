@@ -2,7 +2,9 @@
 // and the reminder scheduler client.
 
 import { type Reminder, defaultReminder, legacyReminder } from './reminder'
+import { createStore } from './store'
 import { addDays, isWeekend, today, zonedEpoch } from './time'
+import { locale } from './locales'
 
 export type RepeatKind = 'none' | 'daily' | 'weekly' | 'weekday'
 
@@ -19,23 +21,59 @@ export type ScheduleItem = {
 
 export const SCHEDULE_KEY = 'desktime.schedule'
 
-export const TAGS: { key: string; label: string; color: string }[] = [
-  { key: 'work', label: '工作', color: '#2563eb' },
-  { key: 'life', label: '生活', color: '#16a34a' },
-  { key: 'important', label: '重要', color: '#dc2626' },
-  { key: 'study', label: '学习', color: '#7c3aed' },
-]
+export type ScheduleTag = { key: string; label: string; color: string }
 
-export const TAG_MAP = new Map(TAGS.map((tag) => [tag.key, tag]))
+// A function rather than a constant: the labels are translated, and a list built
+// at module load would hold whichever language was current when this file was
+// first imported.
+export function defaultTags(): ScheduleTag[] {
+  const text = locale().scheduleData
+  return [
+    { key: 'work', label: text.tagWork, color: '#2563eb' },
+    { key: 'life', label: text.tagLife, color: '#16a34a' },
+    { key: 'important', label: text.tagImportant, color: '#dc2626' },
+    { key: 'study', label: text.tagStudy, color: '#7c3aed' },
+  ]
+}
 
-export const REPEATS: { key: RepeatKind; label: string }[] = [
-  { key: 'none', label: '不重复' },
-  { key: 'daily', label: '每天' },
-  { key: 'weekly', label: '每周' },
-  { key: 'weekday', label: '工作日' },
-]
+// Editable in settings, so the list is a store rather than a constant. An item
+// keeps its tag by `key`, which is why renaming or recolouring a tag leaves
+// every schedule item alone — and why a deleted key simply stops resolving.
+//
+// The store starts empty rather than seeded with the built-in list: a seeded
+// default would be a second copy of the translated labels, frozen at import.
+// `tagsOf` supplies them instead, and only until the user edits the list.
+export const tagStore = createStore<{ tags: ScheduleTag[] }>('desktime.tags', {
+  tags: [],
+})
 
-export const REPEAT_LABEL = new Map(REPEATS.map((repeat) => [repeat.key, repeat.label]))
+/**
+ * The tags a stored snapshot stands for, falling back to the built-in list while
+ * the user has never edited it — which is what lets those four follow the
+ * language. Emptiness is read from the *snapshot*, not from the parsed array, so
+ * a user who deliberately deleted every tag keeps an empty list.
+ */
+export function tagsOf(snapshot: string): ScheduleTag[] {
+  return snapshot ? tagStore.parse(snapshot).tags : defaultTags()
+}
+
+export function tagMapOf(tags: ScheduleTag[]) {
+  return new Map(tags.map((tag) => [tag.key, tag]))
+}
+
+export function repeats(): { key: RepeatKind; label: string }[] {
+  const text = locale().scheduleData
+  return [
+    { key: 'none', label: text.repeatNone },
+    { key: 'daily', label: text.repeatDaily },
+    { key: 'weekly', label: text.repeatWeekly },
+    { key: 'weekday', label: text.repeatWeekday },
+  ]
+}
+
+export function repeatLabel(repeat: RepeatKind) {
+  return repeats().find((entry) => entry.key === repeat)?.label ?? repeat
+}
 
 export function dueTime(item: ScheduleItem) {
   return zonedEpoch(item.date, item.time)
@@ -56,7 +94,7 @@ export function defaultItems(): ScheduleItem[] {
   return [
     {
       id: 'daily-review',
-      title: '整理今天的重点',
+      title: locale().scheduleData.seedTitle,
       date: today(),
       time: '18:00',
       done: false,

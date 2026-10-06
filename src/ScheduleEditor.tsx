@@ -4,39 +4,45 @@
 // change an item at all — you had to delete it and retype — and the reminder
 // options need more room than the two-row form has.
 
-import { useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Trash2, X } from 'lucide-react'
 import { defaultReminder } from './reminder'
 import { ReminderFields } from './ReminderFields'
-import { type RepeatKind, type ScheduleItem, REPEATS, TAGS } from './schedule'
+import { type RepeatKind, type ScheduleItem, repeats, tagStore, tagsOf } from './schedule'
+import { useLocale } from './locales'
 
-const text = {
-  title: '编辑日程',
-  name: '标题',
-  date: '日期',
-  time: '时间',
-  repeat: '重复',
-  tag: '标签',
-  noTag: '无标签',
-  reminder: '提醒',
-  cancel: '取消',
-  save: '保存',
-  delete: '删除',
-  close: '关闭',
-}
 
 type ScheduleEditorProps = {
   item: ScheduleItem
+  /** True while the item is not in the list yet: no title change, and nothing to delete. */
+  isNew?: boolean
   onSave: (item: ScheduleItem) => void
   onDelete: (id: string) => void
   onClose: () => void
 }
 
-export function ScheduleEditor({ item, onSave, onDelete, onClose }: ScheduleEditorProps) {
+export function ScheduleEditor({ item, isNew, onSave, onDelete, onClose }: ScheduleEditorProps) {
+  const strings = useLocale()
+  const text = strings.scheduleEditor
   const [draft, setDraft] = useState<ScheduleItem>(() => ({
     ...item,
     reminder: item.reminder ?? defaultReminder,
   }))
+  const storedTags = useSyncExternalStore(tagStore.subscribe, tagStore.snapshot)
+  const tags = tagsOf(storedTags)
+
+  // Listened for on the window rather than on the card, so Esc closes the
+  // overlay wherever the focus happens to be — including nowhere in particular.
+  // `data-escape-owner` on the backdrop is what tells the shell to leave Esc
+  // alone while this is open, instead of unpinning the widget underneath.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   function set<Key extends keyof ScheduleItem>(key: Key, value: ScheduleItem[Key]) {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -49,11 +55,11 @@ export function ScheduleEditor({ item, onSave, onDelete, onClose }: ScheduleEdit
   }
 
   return (
-    <div className="editor-backdrop" onMouseDown={onClose}>
+    <div className="editor-backdrop" data-escape-owner onMouseDown={onClose}>
       <div className="editor-card" onMouseDown={(event) => event.stopPropagation()}>
         <div className="editor-header">
-          <span>{text.title}</span>
-          <button className="icon-button" type="button" onClick={onClose} title={text.close}>
+          <span>{isNew ? text.newTitle : text.title}</span>
+          <button className="icon-button" type="button" onClick={onClose} title={strings.common.close}>
             <X size={14} aria-hidden="true" />
           </button>
         </div>
@@ -92,7 +98,7 @@ export function ScheduleEditor({ item, onSave, onDelete, onClose }: ScheduleEdit
             value={draft.repeat ?? 'none'}
             onChange={(event) => set('repeat', event.target.value as RepeatKind)}
           >
-            {REPEATS.map((repeat) => (
+            {repeats().map((repeat) => (
               <option key={repeat.key} value={repeat.key}>
                 {repeat.label}
               </option>
@@ -104,7 +110,7 @@ export function ScheduleEditor({ item, onSave, onDelete, onClose }: ScheduleEdit
             onChange={(event) => set('tag', event.target.value || undefined)}
           >
             <option value="">{text.noTag}</option>
-            {TAGS.map((tag) => (
+            {tags.map((tag) => (
               <option key={tag.key} value={tag.key}>
                 {tag.label}
               </option>
@@ -119,20 +125,24 @@ export function ScheduleEditor({ item, onSave, onDelete, onClose }: ScheduleEdit
         />
 
         <div className="editor-footer">
-          <button
-            type="button"
-            className="reminder-button danger"
-            onClick={() => onDelete(item.id)}
-          >
-            <Trash2 size={13} aria-hidden="true" />
-            {text.delete}
-          </button>
+          {/* Deleting something that was never created is what "取消" already
+              does, so the button is simply absent while creating. */}
+          {!isNew && (
+            <button
+              type="button"
+              className="reminder-button danger"
+              onClick={() => onDelete(item.id)}
+            >
+              <Trash2 size={13} aria-hidden="true" />
+              {strings.common.delete}
+            </button>
+          )}
           <div className="toolbar-spacer" />
           <button type="button" className="reminder-button" onClick={onClose}>
-            {text.cancel}
+            {strings.common.cancel}
           </button>
           <button type="button" className="reminder-button primary" onClick={save}>
-            {text.save}
+            {strings.common.save}
           </button>
         </div>
       </div>

@@ -181,6 +181,14 @@ impl Queue {
     pub fn next_trigger(&self) -> Option<i64> {
         self.entries.peek().map(|Reverse(entry)| entry.trigger_at)
     }
+
+    pub fn queued(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn ringing(&self) -> usize {
+        self.ringing.len()
+    }
 }
 
 #[cfg(test)]

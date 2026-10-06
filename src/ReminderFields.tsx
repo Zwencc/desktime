@@ -1,21 +1,9 @@
 // Reminder options, shared by the per-item editor and the global defaults in
 // settings so the two can never drift apart.
 
-import { type Reminder, CHANNELS, VISUALS } from './reminder'
+import { type Reminder, channels, visuals } from './reminder'
+import { useLocale } from './locales'
 
-const text = {
-  channel: '渠道',
-  lead: '提前',
-  minutes: '分钟',
-  topmost: '置顶',
-  focus: '抢占焦点',
-  visual: '提醒方式',
-  repeat: '重复',
-  every: '每',
-  atMost: '最多',
-  times: '次',
-  unlimited: '0 = 不限，直到停止',
-}
 
 type ReminderFieldsProps = {
   value: Reminder
@@ -23,6 +11,8 @@ type ReminderFieldsProps = {
 }
 
 export function ReminderFields({ value, onChange }: ReminderFieldsProps) {
+  const strings = useLocale()
+  const text = strings.reminderFields
   function set<Key extends keyof Reminder>(key: Key, next: Reminder[Key]) {
     onChange({ ...value, [key]: next })
   }
@@ -38,7 +28,7 @@ export function ReminderFields({ value, onChange }: ReminderFieldsProps) {
           value={value.channel}
           onChange={(event) => set('channel', event.target.value as Reminder['channel'])}
         >
-          {CHANNELS.map((entry) => (
+          {channels().map((entry) => (
             <option key={entry.key} value={entry.key}>
               {entry.label}
             </option>
@@ -57,7 +47,7 @@ export function ReminderFields({ value, onChange }: ReminderFieldsProps) {
               value={value.leadMinutes}
               onChange={(event) => set('leadMinutes', Math.max(0, Number(event.target.value) || 0))}
             />
-            <small>{text.minutes}</small>
+            <small>{strings.common.minutes}</small>
           </label>
 
           {isPopup && (
@@ -87,7 +77,7 @@ export function ReminderFields({ value, onChange }: ReminderFieldsProps) {
                   value={value.visual}
                   onChange={(event) => set('visual', event.target.value as Reminder['visual'])}
                 >
-                  {VISUALS.map((entry) => (
+                  {visuals().map((entry) => (
                     <option key={entry.key} value={entry.key}>
                       {entry.label}
                     </option>
@@ -109,7 +99,7 @@ export function ReminderFields({ value, onChange }: ReminderFieldsProps) {
                 set('repeatEveryMin', Math.max(0, Number(event.target.value) || 0))
               }
             />
-            <small>{text.minutes}</small>
+            <small>{strings.common.minutes}</small>
             <small>{text.atMost}</small>
             <input
               type="number"

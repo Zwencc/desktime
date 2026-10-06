@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Bell, BellOff, Pause, Play, RotateCcw, Timer } from 'lucide-react'
+import { Beef, Bell, BellOff, Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { HolidayUtil, Solar } from 'lunar-javascript'
+import { showWidget } from './panels'
 import { type NoticeJob, syncNotices } from './reminder'
 import {
   appTimeZone,
@@ -12,19 +13,8 @@ import {
   zonedHourMinute,
   zonedYmd,
 } from './time'
+import { locale, showsLunar, useLocale } from './locales'
 
-const text = {
-  lunarPrefix: '农历',
-  pomodoroDone: '🍅 番茄钟完成',
-  pomodoroDoneBody: '专注时间到，休息一下吧',
-  hourlyChime: '整点报时',
-  hourlyBody: (hour: number) => `现在是${timeZoneLabel()} ${hour} 点整`,
-  hourlyOn: '整点报时：开',
-  hourlyOff: '整点报时：关',
-  startFocus: '开始专注',
-  pauseFocus: '暂停',
-  resetFocus: '重置番茄钟',
-}
 
 const HOURLY_CHIME_KEY = 'desktime.hourlyChime'
 const POMODORO_MS = 25 * 60 * 1000
@@ -47,6 +37,10 @@ function hourlyNotices(): NoticeJob[] {
   const now = Date.now()
   const notices: NoticeJob[] = []
 
+  // Read here rather than held in a module constant: this runs long after the
+  // module was imported, and the language may have changed since.
+  const chime = locale().clock
+
   for (let step = 1; step <= HOURLY_LOOKAHEAD; step += 1) {
     const probe = new Date(now + step * 3600000)
     const { hour } = zonedHourMinute(probe)
@@ -56,8 +50,8 @@ function hourlyNotices(): NoticeJob[] {
     notices.push({
       id: `hourly-${triggerAt}`,
       triggerAt,
-      title: text.hourlyChime,
-      body: text.hourlyBody(hour),
+      title: chime.hourlyChime,
+      body: chime.hourlyBody(hour, timeZoneLabel()),
     })
   }
 
@@ -74,7 +68,7 @@ type LunarInfo = { date: string; tags: string[] }
 function computeLunar(ymd: string): LunarInfo {
   const solar = Solar.fromDate(new Date(`${ymd}T12:00:00`))
   const lunar = solar.getLunar()
-  const date = `${text.lunarPrefix}${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`
+  const date = `${locale().clock.lunarPrefix}${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`
   const tags = [...solar.getFestivals(), ...lunar.getFestivals()]
   const jieqi = lunar.getJieQi()
   if (jieqi) tags.push(jieqi)
@@ -84,6 +78,7 @@ function computeLunar(ymd: string): LunarInfo {
 }
 
 export function ClockPanel() {
+  const text = useLocale().clock
   const [now, setNow] = useState(() => new Date())
   const [remaining, setRemaining] = useState(POMODORO_MS)
   const [running, setRunning] = useState(false)
@@ -129,7 +124,10 @@ export function ClockPanel() {
     }
 
     void syncNotices(notices)
-  }, [hourlyChime, running, zone, currentHour])
+    // `text` is in the list because the notice bodies are translated: changing
+    // language has to re-send the plan, or the backend keeps ringing yesterday's
+    // language at the next hour.
+  }, [hourlyChime, running, zone, currentHour, text])
 
   const ymd = zonedYmd(now)
   const lunar = useMemo(() => computeLunar(ymd), [ymd])
@@ -162,14 +160,20 @@ export function ClockPanel() {
     <>
       <div className="time">{formatClock(now)}</div>
       <div className="date">{formatDate(now)}</div>
-      <div className="lunar-line">
-        <span className="lunar-date">{lunar.date}</span>
-        {lunar.tags.slice(0, 2).map((tag) => (
-          <span className="lunar-tag" key={tag}>
-            {tag}
-          </span>
-        ))}
-      </div>
+      {/* Chinese only, on purpose. lunar-javascript speaks Chinese and the
+          almanac is specific to the Chinese calendar — showing a French user
+          「甲辰年 惊蛰」, or a literal translation of it, is worse than showing
+          nothing. Hiding the row is a smaller lie than translating it badly. */}
+      {showsLunar() && (
+        <div className="lunar-line">
+          <span className="lunar-date">{lunar.date}</span>
+          {lunar.tags.slice(0, 2).map((tag) => (
+            <span className="lunar-tag" key={tag}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="pomodoro-row" data-no-drag>
         <Timer size={15} aria-hidden="true" />
         <span className="pomodoro-time">{formatDuration(remaining)}</span>
@@ -191,6 +195,11 @@ export function ClockPanel() {
           title={hourlyChime ? text.hourlyOn : text.hourlyOff}
         >
           {hourlyChime ? <Bell size={14} aria-hidden="true" /> : <BellOff size={14} aria-hidden="true" />}
+        </button>
+        {/* The other half of the swap the moo clock offers: the two widgets
+            exclude each other, so showing one is the whole switch. */}
+        <button className="icon-button" type="button" onClick={() => showWidget('moo')} title={text.toMoo}>
+          <Beef size={14} aria-hidden="true" />
         </button>
       </div>
     </>

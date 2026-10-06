@@ -3,7 +3,7 @@
 // Completing an item has to travel back to the schedule widget that owns the
 // list, which is what the reminder action channel is for.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { AlarmClock, Check, ChevronDown, X } from 'lucide-react'
 import {
   currentMonitor,
@@ -21,20 +21,10 @@ import {
   snoozeReminder,
   stopReminder,
 } from './reminder'
-import { TAG_MAP } from './schedule'
+import { tagMapOf, tagStore, tagsOf } from './schedule'
 import './App.css'
+import { useLocale } from './locales'
 
-const text = {
-  title: '提醒',
-  stop: '停止提醒',
-  stopAll: '全部停止',
-  snooze: '稍后',
-  done: '完成',
-  minutes: (value: number) => `${value} 分钟`,
-  overdue: (value: number) => `已逾期 ${value} 分钟`,
-  round: (value: number) => `第 ${value} 次`,
-  more: (value: number) => `还有 ${value} 条`,
-}
 
 /** Stacked cards beyond this are collapsed into a "还有 N 条" line. */
 const MAX_VISIBLE = 3
@@ -45,9 +35,12 @@ const EDGE_GAP = 20
 let actionNonce = Date.now()
 
 export function ReminderWindow() {
+  const text = useLocale().reminderWindow
   const [jobs, setJobs] = useState<ReminderJob[]>([])
   const [snoozeFor, setSnoozeFor] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const storedTags = useSyncExternalStore(tagStore.subscribe, tagStore.snapshot)
+  const tagMap = useMemo(() => tagMapOf(tagsOf(storedTags)), [storedTags])
   // Read by "stop all", which must not do its bookkeeping inside a state updater.
   const jobsRef = useRef(jobs)
 
@@ -185,17 +178,15 @@ export function ReminderWindow() {
 
           <div className="reminder-list">
             {visible.map((job) => {
-              const tag = job.tag ? TAG_MAP.get(job.tag) : undefined
+              const tag = job.tag ? tagMap.get(job.tag) : undefined
 
               return (
                 <article className="reminder-item" key={job.id}>
                   <div className="reminder-item-head">
                     {tag && (
-                      <span
-                        className="item-tag"
-                        style={{ background: tag.color }}
-                        title={tag.label}
-                      />
+                      <span className="tag-chip" style={{ background: tag.color }}>
+                        {tag.label}
+                      </span>
                     )}
                     <h2>{job.title}</h2>
                   </div>

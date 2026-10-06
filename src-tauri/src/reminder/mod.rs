@@ -8,6 +8,7 @@
 
 mod queue;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -15,7 +16,10 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_notification::NotificationExt;
 
-use queue::{now_ms, Queue};
+use queue::Queue;
+// Re-exported: DTCore needs the same clock to decide how far off the next
+// reminder is, and there should be exactly one definition of "now".
+pub use queue::now_ms;
 
 pub const REMINDER_WINDOW: &str = "reminder";
 pub const SCHEDULE_WINDOW: &str = "schedule";
@@ -24,7 +28,6 @@ const EVENT_FIRE: &str = "reminder://fire";
 const EVENT_INAPP: &str = "reminder://inapp";
 const EVENT_FIRED: &str = "reminder://fired";
 
-const REMIND_TITLE: &str = "日程提醒";
 
 /// Longest single sleep. Bounds how stale the queue can get when the machine
 /// suspends, since a timed wait cannot be trusted to measure real elapsed time.
@@ -98,10 +101,26 @@ enum Channel {
     Toast,
 }
 
+/// What the developer-mode panel reads. Nothing here is a reminder's contents —
+/// counts and one timestamp, enough to answer "is the queue alive and what is it
+/// waiting for".
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchedulerStatus {
+    pub worker_running: bool,
+    pub queued: usize,
+    pub ringing: usize,
+    pub next_trigger: Option<i64>,
+    pub inapp_fallback: bool,
+}
+
 #[derive(Default)]
 pub struct Scheduler {
     queue: Mutex<Queue>,
     wake: Condvar,
+    /// Set once the worker thread is actually spawned. `stopped` alone cannot
+    /// stand in for this: a thread that failed to spawn leaves it false too.
+    worker: AtomicBool,
 }
 
 impl Scheduler {
@@ -115,12 +134,18 @@ impl Scheduler {
         let mut queue = self.lock();
         queue.set_inapp_fallback(inapp_fallback);
         queue.replace_reminders(jobs);
+        let next = queue.next_trigger();
         drop(queue);
+        publish_next_wake(next);
         self.wake.notify_all();
     }
 
     pub fn sync_notices(&self, jobs: Vec<NoticeJob>) {
-        self.lock().replace_notices(jobs);
+        let mut queue = self.lock();
+        queue.replace_notices(jobs);
+        let next = queue.next_trigger();
+        drop(queue);
+        publish_next_wake(next);
         self.wake.notify_all();
     }
 
@@ -138,6 +163,17 @@ impl Scheduler {
     pub fn shutdown(&self) {
         self.lock().stop_worker();
         self.wake.notify_all();
+    }
+
+    pub fn status(&self) -> SchedulerStatus {
+        let queue = self.lock();
+        SchedulerStatus {
+            worker_running: self.worker.load(Ordering::Relaxed) && !queue.is_stopped(),
+            queued: queue.queued(),
+            ringing: queue.ringing(),
+            next_trigger: queue.next_trigger(),
+            inapp_fallback: queue.inapp_fallback(),
+        }
     }
 
     fn inapp_fallback(&self) -> bool {
@@ -180,21 +216,57 @@ impl Scheduler {
 }
 
 /// Registers the scheduler and starts its worker thread.
+/// File DTCore reads to know when this machine next has something to ring.
+///
+/// Reminders are scheduled, dispatched and dismissed entirely inside the UI
+/// process — it owns the time zone, the repeat state and the windows. Moving all
+/// of that into DTCore would mean a second copy of logic that is already
+/// subtle, and two queues that could disagree about whether a reminder had been
+/// handled.
+///
+/// So DTCore is given one number instead: the next moment a reminder is due.
+/// If the UI is not running by then, DTCore starts it, and the UI does what
+/// it has always done. The service ends up guaranteeing that DeskTime is there
+/// when it needs to be, rather than reimplementing DeskTime.
+pub fn next_wake_path() -> std::path::PathBuf {
+    crate::config::dir().join("next-wake")
+}
+
+/// Writes the next due time out, or clears it when nothing is scheduled.
+///
+/// Quiet on failure: a missed write costs a reminder that only fires if the app
+/// happens to be open, which is exactly the behaviour without a service at all.
+fn publish_next_wake(next: Option<i64>) {
+    let path = next_wake_path();
+    let _ = std::fs::create_dir_all(crate::config::dir());
+
+    match next {
+        Some(at) => {
+            let _ = std::fs::write(path, at.to_string());
+        }
+        None => {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+}
+
 pub fn start<R: Runtime>(app: &AppHandle<R>) {
     let scheduler = Arc::new(Scheduler::default());
     app.manage(Arc::clone(&scheduler));
 
     let handle = app.clone();
-    std::thread::Builder::new()
+    let worker = Arc::clone(&scheduler);
+    let spawned = std::thread::Builder::new()
         .name("desktime-reminder".to_owned())
         .spawn(move || {
-            while let Some(jobs) = scheduler.wait_for_due() {
+            while let Some(jobs) = worker.wait_for_due() {
                 for job in jobs {
-                    dispatch(&handle, &scheduler, job);
+                    dispatch(&handle, &worker, job);
                 }
             }
         })
-        .ok();
+        .is_ok();
+    scheduler.worker.store(spawned, Ordering::Relaxed);
 }
 
 fn dispatch<R: Runtime>(app: &AppHandle<R>, scheduler: &Scheduler, job: Job) {
@@ -208,7 +280,7 @@ fn dispatch<R: Runtime>(app: &AppHandle<R>, scheduler: &Scheduler, job: Job) {
                 }
                 Channel::Toast => notify(
                     app,
-                    REMIND_TITLE,
+                    crate::i18n::strings(app).reminder_title,
                     &format!("{}（{}）", reminder.title, reminder.time_label),
                 ),
                 Channel::Off => {}

@@ -12,6 +12,7 @@ import { listen } from '@tauri-apps/api/event'
 import { isTauri } from './env'
 import { readSettings } from './settings'
 import { zonedEpoch } from './time'
+import { locale } from './locales'
 
 export type ReminderChannel = 'off' | 'inapp' | 'desktop' | 'toast'
 export type ReminderVisual = 'static' | 'breathe' | 'blink' | 'shake'
@@ -93,23 +94,30 @@ export const legacyReminder: Reminder = {
   repeatMax: 0,
 }
 
-export const CHANNELS: { key: ReminderChannel; label: string }[] = [
-  { key: 'off', label: '不提醒' },
-  { key: 'inapp', label: '应用内提醒' },
-  { key: 'desktop', label: '弹窗提醒' },
-  { key: 'toast', label: '系统通知' },
-]
+// Functions rather than constants: the labels are translated, and an array built
+// at module load would hold whichever language was current when this file was
+// first imported — every dropdown would then keep offering that language.
+export function channels(): { key: ReminderChannel; label: string }[] {
+  const text = locale().reminderData
+  return [
+    { key: 'off', label: text.channelOff },
+    { key: 'inapp', label: text.channelInapp },
+    { key: 'desktop', label: text.channelDesktop },
+    { key: 'toast', label: text.channelToast },
+  ]
+}
 
-export const VISUALS: { key: ReminderVisual; label: string }[] = [
-  { key: 'static', label: '无动画' },
-  { key: 'breathe', label: '边框呼吸' },
-  { key: 'blink', label: '整窗闪烁' },
-  { key: 'shake', label: '抖动' },
-]
+export function visuals(): { key: ReminderVisual; label: string }[] {
+  const text = locale().reminderData
+  return [
+    { key: 'static', label: text.visualStatic },
+    { key: 'breathe', label: text.visualBreathe },
+    { key: 'blink', label: text.visualBlink },
+    { key: 'shake', label: text.visualShake },
+  ]
+}
 
 export const SNOOZE_CHOICES = [5, 10, 15, 30]
-
-export const CHANNEL_LABEL = new Map(CHANNELS.map((entry) => [entry.key, entry.label]))
 
 export function readReminderDefaults(): Reminder {
   try {
@@ -153,12 +161,6 @@ function readHandled(): Record<string, number> {
 export function markHandled(id: string) {
   const handled = readHandled()
   handled[id] = Date.now()
-  localStorage.setItem(HANDLED_KEY, JSON.stringify(handled))
-}
-
-export function clearHandled(id: string) {
-  const handled = readHandled()
-  delete handled[id]
   localStorage.setItem(HANDLED_KEY, JSON.stringify(handled))
 }
 
