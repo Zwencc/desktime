@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "DeskTime",
-  "version": "0.1.0",
+  "version": "0.1.8",
   "identifier": "com.desktime.app",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "npm run sidecars:dev && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build && npm run sidecars:build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -21,13 +21,14 @@
         "minHeight": 202,
         "x": 80,
         "y": 80,
+        "visible": false,
         "resizable": false,
         "decorations": false,
         "transparent": true,
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
       },
       {
         "label": "note",
@@ -39,6 +40,7 @@
         "minHeight": 222,
         "x": 80,
         "y": 270,
+        "visible": false,
         "resizable": true,
         "dragDropEnabled": false,
         "decorations": false,
@@ -46,7 +48,7 @@
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
       },
       {
         "label": "schedule",
@@ -58,29 +60,34 @@
         "minHeight": 292,
         "x": 430,
         "y": 80,
+        "visible": false,
         "resizable": true,
         "decorations": false,
         "transparent": true,
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
       },
       {
-        "label": "menu",
-        "title": "DeskTime Menu",
-        "url": "/?panel=menu",
-        "width": 220,
-        "height": 260,
+        "label": "moo",
+        "title": "DeskTime Moo",
+        "url": "/?panel=moo",
+        "width": 340,
+        "height": 420,
+        "minWidth": 300,
+        "minHeight": 300,
+        "x": 430,
+        "y": 500,
         "visible": false,
-        "focus": false,
-        "resizable": false,
+        "resizable": true,
+        "dragDropEnabled": false,
         "decorations": false,
         "transparent": true,
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
       },
       {
         "label": "reminder",
@@ -96,25 +103,7 @@
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
-      },
-      {
-        "label": "settings",
-        "title": "DeskTime Settings",
-        "url": "/?panel=settings",
-        "width": 440,
-        "height": 800,
-        "minWidth": 380,
-        "minHeight": 360,
-        "visible": false,
-        "focus": false,
-        "resizable": true,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
       }
     ],
     "security": {
@@ -123,9 +112,23 @@
   },
   "bundle": {
     "active": true,
+    "externalBin": [
+      "binaries/DTCore",
+      "binaries/DTSvc"
+    ],
     "targets": [
       "nsis"
     ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis-hooks.nsh"
+      }
+    },
+    "resources": {
+      "../plugins/_template": "plugins/_template",
+      "../plugins/system-monitor": "plugins/system-monitor",
+      "../plugins/video-player": "plugins/video-player"
+    },
     "icon": [
       "icons/icon.ico"
     ]

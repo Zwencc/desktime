@@ -1,16 +1,18 @@
 {
   "name": "desktime",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "sidecars:dev": "node scripts/build-sidecars.mjs",
+    "sidecars:build": "node scripts/build-sidecars.mjs --release",
     "lint": "oxlint",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "node scripts/bump-version.mjs && tauri build"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.4",
@@ -20,7 +22,9 @@
     "@codemirror/view": "^6.43.6",
     "@lezer/highlight": "^1.2.3",
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tauri-apps/plugin-global-shortcut": "^2.3.2",
     "@tauri-apps/plugin-notification": "^2.3.3",
     "dompurify": "^3.4.12",
     "lucide-react": "^1.23.0",

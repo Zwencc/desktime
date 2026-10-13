@@ -2,5 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    desktime_lib::run()
+    desktime_lib::logging::install("ui");
+    desktime_lib::run();
 }

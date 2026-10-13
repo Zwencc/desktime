@@ -1,10 +1,15 @@
 :root {
-  font-family:
+  /* Set per language by installLocale(); the stack below is the fallback for
+     the first frame and for the browser prototype. Japanese needs a Japanese
+     face — "Microsoft YaHei UI" draws kana and kanji with Chinese glyph shapes,
+     which is legible and instantly wrong to a Japanese reader. */
+  --app-font:
     "Microsoft YaHei UI",
     "Segoe UI",
     system-ui,
     sans-serif;
-  color: #0f172a;
+  font-family: var(--app-font);
+  color: var(--ink);
   background: transparent;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -16,12 +21,27 @@
   box-sizing: border-box;
 }
 
+/* Widgets are furniture, not documents. Dragging across a clock face selected
+   half the date and fought the window drag, so selection is off by default and
+   turned back on below wherever selecting is the point of the element. */
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
   overflow: hidden;
   background: transparent;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.cm-editor,
+.note-preview,
+.settings-about,
+.dev-path,
+.selectable {
+  user-select: text;
 }
 
 #root {

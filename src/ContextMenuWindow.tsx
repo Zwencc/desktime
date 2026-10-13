@@ -17,12 +17,8 @@ import {
 } from './panels'
 import { type WidgetKey, widgetKeys, widgetName } from './widgets'
 import './App.css'
+import { useLocale } from './locales'
 
-const text = {
-  pin: '钉在上层',
-  show: '显示',
-  reset: '重置当前窗口位置',
-}
 
 // Transparent frame (in CSS px) around the menu card so its drop shadow has
 // room; must match the .context-menu-root padding in App.css.
@@ -41,6 +37,7 @@ type OpenState = {
 }
 
 export function ContextMenuWindow() {
+  const text = useLocale().contextMenu
   const [state, setState] = useState<OpenState | null>(null)
   const [visible, setVisible] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -62,12 +59,17 @@ export function ContextMenuWindow() {
   }
 
   // Pick up open requests written by any widget window.
+  //
+  // The stored request is read once on mount as well as listened for, because
+  // this window is built on demand: the right-click that asks for it may be the
+  // very thing that creates it, and that first request was written before there
+  // was anything here to hear the `storage` event.
   useEffect(() => {
-    function onRequest(event: StorageEvent) {
-      if (event.key !== MENU_REQUEST_KEY || !event.newValue) return
+    function open(raw: string | null) {
+      if (!raw) return
 
       try {
-        const request = JSON.parse(event.newValue) as MenuRequest
+        const request = JSON.parse(raw) as MenuRequest
         openRef.current = true
         tokenRef.current += 1
         setState({
@@ -79,6 +81,23 @@ export function ContextMenuWindow() {
         // ignore malformed requests
       }
     }
+
+    function onRequest(event: StorageEvent) {
+      if (event.key !== MENU_REQUEST_KEY) return
+      open(event.newValue)
+    }
+
+    // Consumed, not just read. The key is kept out of `config.json` but
+    // localStorage itself survives a restart, so the last right click of the
+    // previous session was still sitting here — and this window opened itself on
+    // it the moment it was built, with nobody having clicked anything.
+    //
+    // Clearing it also costs nothing on the normal path: the request has been
+    // read into `state` by then, and the removal's own `storage` event carries a
+    // null value, which `open` ignores.
+    const pending = localStorage.getItem(MENU_REQUEST_KEY)
+    localStorage.removeItem(MENU_REQUEST_KEY)
+    open(pending)
 
     window.addEventListener('storage', onRequest)
     return () => window.removeEventListener('storage', onRequest)

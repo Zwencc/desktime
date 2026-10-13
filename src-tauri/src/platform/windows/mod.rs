@@ -26,6 +26,16 @@ pub fn set_window_visibility<R: tauri::Runtime>(
     Ok(())
 }
 
+/// What the native visibility policy believes about `label`, or `None` when the
+/// window is not registered with it.
+pub fn policy_app_visible<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    label: &str,
+) -> Option<bool> {
+    app.try_state::<WindowsPlatformState>()
+        .and_then(|state| state.app_visible(label))
+}
+
 pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("windows-platform")
         .setup(|app, _api| {
@@ -33,7 +43,7 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             Ok(())
         })
         .on_webview_ready(|webview| {
-            if let Err(error) = webview::disable_browser_accelerators(&webview) {
+            if let Err(error) = webview::configure_webview(&webview) {
                 report_error(
                     "failed to schedule WebView2 configuration",
                     webview.label(),

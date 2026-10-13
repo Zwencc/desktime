@@ -1,3 +1,16 @@
+pub mod activity;
+pub mod browser;
+pub mod config;
+pub mod core;
+pub mod desktop;
+pub mod dev;
 pub mod file;
+pub mod framework;
+pub mod llm;
+pub mod note;
+pub mod plugin;
 pub mod reminder;
+pub mod service;
+pub mod template;
 pub mod window;
+pub mod vault;

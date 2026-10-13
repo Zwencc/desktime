@@ -14,6 +14,80 @@ The Windows platform plugin owns a `WindowsPlatformState`. Every webview-ready
 event registers its host window in that state; duplicate registrations are ignored.
 The plugin drop hook detaches remaining native resources as a final fallback.
 
+## Three processes, one library
+
+`desktime.exe` draws; `DTCore.exe` collects, stores and schedules; `DTSvc.exe`
+starts and watches DTCore. All three link the same library and differ only in
+their entry point, so a module belongs to whichever process owns its data.
+
+- `src/ipc/` is the only channel between the UI and DTCore. `protocol.rs` holds
+  the versioned frames and payloads; `pipe.rs` holds every `unsafe` call in the
+  stack; `transport.rs` and `server.rs` deal in byte slices.
+- Access control on that channel is the pipe's DACL, not the protocol's: it names
+  SYSTEM and the owning user, so no frame carries a credential.
+- `src/storage/` is DTCore's. **The UI must never open `desktime.db`**; it
+  reaches every repository through a command that forwards to DTCore, and those
+  commands are `async` so a wedged background process cannot freeze the windows.
+- A schema change is a new entry in `migrations::MIGRATIONS`, never an edit to an
+  existing one.
+
+## Notes are containers, not paths
+
+`src/note/` owns the `.dtnote` format and nothing else may write one.
+
+- `container.rs` is the only reader and the only writer. Its `read` treats the
+  archive as hostile input; its `write_atomic` builds a complete file beside the
+  target, reads it back in full, and only then renames over the top.
+- Every limit lives in `limits.rs`. Do not compare against a constant at a call
+  site.
+- The webview never receives a path to a picture. Bytes cross the boundary as
+  base64 and become blob URLs, which is why the app carries no `protocol-asset`
+  feature and no asset-protocol scope — there is nothing on disk for a rendered
+  note to reach.
+- `migration.rs` is the only code that reads a `.md`, it runs once, on a list the
+  user approved, and it moves originals to the recycle bin rather than deleting
+  them.
+
+## The vault owns its own secrets
+
+`src/vault/` is the only module that touches VEK or KEK material.
+
+- No key type is `Serialize`, and no command returns one. What crosses to the
+  frontend is a random session handle that means something only to this process
+  and only until the vault is locked.
+- Commands are `async` and run through `spawn_blocking`. A key derivation is
+  deliberately slow and a rejected password waits longer each time; neither may
+  happen on the thread that draws windows.
+- `crypto.rs` dispatches on `format_version + cipher_id + kdf_id`. An unknown
+  combination is `UNSUPPORTED_CRYPTO_VERSION` — never guessed at, never silently
+  rewritten. Changing algorithm means a new version and an explicit migration.
+- Iteration counts are read from the file, never from a constant. The constant
+  is only what *new* envelopes are written with.
+- Failure messages must not distinguish a wrong credential from corrupt data,
+  and must not carry note names, file names or note text. Diagnostics that would
+  are not written at all.
+
+## A browser widget is hostile input with a window
+
+`src/plugin/browser.rs` and `src/commands/browser.rs` are the only places that
+decide what a remote page may do.
+
+- Never add a `core:window:*` setter to `capabilities/plugin-browser.json`.
+  Everything that moves the window goes through `browser_widget_control`, which
+  checks the label and the token first; a permission granted directly to the
+  window bypasses both.
+- Never trust a URL that arrived from the page. Parse it, compare whole
+  serialised origins, and act on the parsed value rather than re-parsing the
+  string.
+- `permits_navigation` and `authorize` must agree. The page can navigate itself
+  without asking, so a destination the bridge would refuse must not become
+  reachable by using `location =` instead.
+- Anything injected into a remote page runs in every frame. Guard on
+  `window.top !== window` before defining anything.
+- The manifest's `allowedOrigins` is where a window may *go*; the capability's
+  `remote.urls` is where it may *call from*. They are allowed to differ and
+  currently do.
+
 ## Windows input and message rules
 
 Use the narrowest API that matches the behavior:

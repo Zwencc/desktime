@@ -1,3 +1,71 @@
+/* ── Theme ──
+   Every colour in this file goes through one of these variables. The values here
+   are the default theme; theme.ts rewrites them on :root at runtime, in each
+   window separately (a WebView cannot see another window's DOM). A new colour
+   belongs here too — inlined literals silently stop following the theme.
+
+   `*-rgb` variables hold a bare triplet so call sites can pick their own alpha:
+   rgba(var(--accent-rgb), 0.2). */
+:root {
+  /* Text, strongest to faintest */
+  --ink: #0f172a;
+  --ink-soft: #1e293b;
+  --ink-muted: #475569;
+  --ink-faint: #64748b;
+  --ink-ghost: #94a3b8;
+  --ink-line: #cbd5e1;
+
+  /* Accent */
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-deep: #1e3a8a;
+  --accent-rgb: 37, 99, 235;
+  --accent-soft-rgb: 59, 130, 246;
+  --accent-pale-rgb: 96, 165, 250;
+
+  /* The widget body */
+  --panel-top: rgba(219, 239, 255, 0.95);
+  --panel-bottom: rgba(188, 224, 255, 0.84);
+  --panel-base: rgba(219, 239, 255, 0.88);
+
+  /* Popups, menus, settings and reminder cards */
+  --card-top: rgba(233, 244, 255, 0.98);
+  --card-bottom: rgba(211, 231, 255, 0.95);
+  --card-flat: rgba(240, 248, 255, 0.99);
+
+  /* Small filled surfaces: buttons, chips, tags */
+  --chip: rgba(191, 219, 254, 0.94);
+  --chip-cool: rgba(186, 230, 253, 0.84);
+  --chip-rgb: 219, 234, 254;
+  /* Input and field fills. Separate from --highlight-rgb: on a dark theme these
+     have to go dark while the 1px top highlight stays light. */
+  --surface-rgb: 255, 255, 255;
+  --highlight-rgb: 255, 255, 255;
+  --shadow-rgb: 15, 23, 42;
+  /* Text sitting on an --accent fill. */
+  --on-accent: #ffffff;
+
+  /* Semantic — these carry meaning, so themes should keep them recognisable */
+  --danger: #dc2626;
+  --danger-strong: #b91c1c;
+  --danger-rgb: 220, 38, 38;
+  --danger-bg: rgba(254, 226, 226, 0.9);
+  --danger-bg-soft: rgba(254, 226, 226, 0.5);
+  --danger-edge: rgba(254, 202, 202, 0.95);
+  --warn: #b45309;
+  --warn-accent: #f59e0b;
+  --warn-bg: rgba(254, 240, 199, 0.98);
+  --warn-edge: rgba(253, 224, 148, 0.96);
+  --warn-wash: rgba(255, 247, 237, 0.92);
+  --warn-glow-rgb: 251, 191, 36;
+  --warn-ring-rgb: 251, 146, 60;
+  --success: #16a34a;
+  --tag: #7c3aed;
+  --neutral: #78716c;
+  --cool: #0369a1;
+  --cool-strong: #075985;
+}
+
 .widget-window {
   /* Transparent margin around the panel so the drop shadow has room to render
      (the window is enlarged by 2x --pad in tauri.conf.json to keep the visible
@@ -32,11 +100,11 @@
   overflow: hidden;
   border-radius: 18px;
   background:
-    linear-gradient(160deg, rgba(219, 239, 255, 0.95), rgba(188, 224, 255, 0.84)),
-    rgba(219, 239, 255, 0.88);
+    linear-gradient(160deg, var(--panel-top), var(--panel-bottom)),
+    var(--panel-base);
   box-shadow:
-    0 4px 12px rgba(15, 23, 42, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    0 4px 12px rgba(var(--shadow-rgb), 0.26),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.72);
   backdrop-filter: blur(22px) saturate(1.12);
 }
 
@@ -58,7 +126,7 @@
   align-items: center;
   gap: 7px;
   flex: 0 0 auto;
-  color: #1e3a8a;
+  color: var(--accent-deep);
   font-size: 13px;
   font-weight: 800;
   user-select: none;
@@ -73,8 +141,8 @@
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  color: #075985;
-  background: rgba(186, 230, 253, 0.84);
+  color: var(--cool-strong);
+  background: var(--chip-cool);
   font-size: 12px;
 }
 
@@ -84,7 +152,7 @@
 
 .time {
   margin-top: 8px;
-  color: #0f172a;
+  color: var(--ink);
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 48px;
   font-weight: 780;
@@ -93,7 +161,7 @@
 
 .date {
   margin-top: 8px;
-  color: #2563eb;
+  color: var(--accent);
   font-size: 14px;
   font-weight: 750;
 }
@@ -101,7 +169,6 @@
 textarea,
 input,
 button,
-.schedule-form,
 .schedule-list,
 [data-no-drag] {
   -webkit-app-region: no-drag;
@@ -111,18 +178,18 @@ button,
 textarea,
 input {
   width: 100%;
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.62);
-  color: #0f172a;
+  background: rgba(var(--surface-rgb), 0.62);
+  color: var(--ink);
   font: inherit;
   outline: none;
 }
 
 textarea:focus,
 input:focus {
-  border-color: rgba(37, 99, 235, 0.64);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+  border-color: rgba(var(--accent-rgb), 0.64);
+  box-shadow: 0 0 0 3px rgba(var(--accent-soft-rgb), 0.16);
 }
 
 textarea {
@@ -131,7 +198,7 @@ textarea {
   margin-top: 8px;
   padding: 11px;
   resize: none;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -154,12 +221,12 @@ textarea {
 .format-button {
   width: 26px;
   height: 26px;
-  color: #1d4ed8;
-  background: rgba(219, 234, 254, 0.72);
+  color: var(--accent-strong);
+  background: rgba(var(--chip-rgb), 0.72);
 }
 
 .format-button:hover {
-  background: rgba(191, 219, 254, 0.92);
+  background: var(--chip);
 }
 
 .format-button:disabled {
@@ -168,8 +235,8 @@ textarea {
 }
 
 .format-button.active {
-  color: white;
-  background: #2563eb;
+  color: var(--on-accent);
+  background: var(--accent);
 }
 
 .toolbar-spacer {
@@ -177,26 +244,26 @@ textarea {
 }
 
 .save-note-button {
-  color: white;
-  background: #2563eb;
+  color: var(--on-accent);
+  background: var(--accent);
 }
 
 .save-note-button:hover {
-  background: #1d4ed8;
+  background: var(--accent-strong);
 }
 
 .note-surface {
   flex: 1;
   min-height: 0;
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(var(--surface-rgb), 0.62);
   overflow: hidden;
 }
 
 .note-surface:focus-within {
-  border-color: rgba(37, 99, 235, 0.64);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+  border-color: rgba(var(--accent-rgb), 0.64);
+  box-shadow: 0 0 0 3px rgba(var(--accent-soft-rgb), 0.16);
 }
 
 .note-surface .cm-editor {
@@ -204,30 +271,55 @@ textarea {
   padding: 8px 9px;
 }
 
+/* An image standing in for its own markdown while editing — see noteImages.ts.
+   Capped in height because a screenshot at full size pushes the line being
+   typed off the bottom of a widget that is 320px tall to begin with. */
+.cm-image-preview {
+  display: inline-block;
+  vertical-align: top;
+  max-width: 100%;
+  margin: 4px 0 6px;
+}
+
+.cm-image-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.3);
+  object-fit: contain;
+}
+
+/* The markdown handed back when the file will not load. */
+.cm-image-preview.broken {
+  color: var(--danger);
+  text-decoration: underline wavy;
+}
+
 .note-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding-top: 6px;
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 11px;
   font-weight: 600;
   user-select: none;
 }
 
 .note-status.error {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .note-preview {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(var(--surface-rgb), 0.62);
   padding: 8px 11px;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 14px;
   line-height: 1.55;
   word-wrap: break-word;
@@ -240,7 +332,7 @@ textarea {
 
 .note-preview::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.42);
+  background: rgba(var(--accent-pale-rgb), 0.42);
 }
 
 .note-preview > :first-child {
@@ -252,7 +344,7 @@ textarea {
 .note-preview h3,
 .note-preview h4 {
   margin: 10px 0 6px;
-  color: #1e3a8a;
+  color: var(--accent-deep);
   line-height: 1.25;
 }
 
@@ -283,13 +375,13 @@ textarea {
 }
 
 .note-preview a {
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .note-preview code {
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(var(--accent-soft-rgb), 0.12);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12.5px;
 }
@@ -298,7 +390,7 @@ textarea {
   margin: 8px 0;
   padding: 8px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(var(--shadow-rgb), 0.06);
   overflow: auto;
 }
 
@@ -310,8 +402,8 @@ textarea {
 .note-preview blockquote {
   margin: 6px 0;
   padding-left: 10px;
-  border-left: 3px solid rgba(59, 130, 246, 0.4);
-  color: #475569;
+  border-left: 3px solid rgba(var(--accent-soft-rgb), 0.4);
+  color: var(--ink-muted);
 }
 
 .note-preview img {
@@ -326,47 +418,14 @@ textarea {
 
 .note-preview th,
 .note-preview td {
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.25);
   padding: 3px 6px;
 }
 
 .note-preview hr {
   border: none;
-  border-top: 1px solid rgba(59, 130, 246, 0.3);
+  border-top: 1px solid rgba(var(--accent-soft-rgb), 0.3);
   margin: 10px 0;
-}
-
-.schedule-form {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin: 8px 0 10px;
-}
-
-.form-row {
-  display: flex;
-  gap: 7px;
-}
-
-.form-row > input:first-child {
-  flex: 1;
-}
-
-.schedule-form input,
-.schedule-form select {
-  height: 36px;
-  padding: 0 9px;
-  font-size: 13px;
-}
-
-.schedule-form select {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid rgba(59, 130, 246, 0.22);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.62);
-  color: #0f172a;
-  outline: none;
 }
 
 .date-input {
@@ -382,23 +441,24 @@ button {
 }
 
 .add-button {
-  height: 36px;
-  color: white;
-  background: #2563eb;
+  width: 30px;
+  height: 30px;
+  color: var(--on-accent);
+  background: var(--accent);
 }
 
 .icon-button,
 .check-button {
   width: 30px;
   height: 30px;
-  color: #1d4ed8;
-  background: rgba(219, 234, 254, 0.84);
+  color: var(--accent-strong);
+  background: rgba(var(--chip-rgb), 0.84);
 }
 
 .check-button {
   flex: 0 0 30px;
-  color: #0369a1;
-  background: rgba(186, 230, 253, 0.84);
+  color: var(--cool);
+  background: var(--chip-cool);
 }
 
 .schedule-list {
@@ -417,7 +477,7 @@ button {
 
 .schedule-list::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.42);
+  background: rgba(var(--accent-pale-rgb), 0.42);
 }
 
 .schedule-item {
@@ -426,9 +486,9 @@ button {
   gap: 8px;
   min-height: 52px;
   padding: 8px;
-  border: 1px solid rgba(96, 165, 250, 0.22);
+  border: 1px solid rgba(var(--accent-pale-rgb), 0.22);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(var(--surface-rgb), 0.5);
 }
 
 .schedule-item div {
@@ -438,7 +498,7 @@ button {
 
 .schedule-item h2 {
   margin: 0 0 3px;
-  color: #0f172a;
+  color: var(--ink);
   font-size: 13px;
   font-weight: 760;
   line-height: 1.25;
@@ -447,13 +507,13 @@ button {
 
 .schedule-item p {
   margin: 0;
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 12px;
 }
 
 .schedule-item.done h2,
 .schedule-item.done p {
-  color: #94a3b8;
+  color: var(--ink-ghost);
   text-decoration: line-through;
 }
 
@@ -463,7 +523,7 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #475569;
+  color: var(--ink-muted);
   font-size: 12px;
   font-weight: 650;
   overflow: hidden;
@@ -479,8 +539,8 @@ button {
   flex: 0 0 auto;
   padding: 1px 7px;
   border-radius: 999px;
-  color: #b45309;
-  background: rgba(251, 191, 36, 0.24);
+  color: var(--warn);
+  background: rgba(var(--warn-glow-rgb), 0.24);
   font-size: 11px;
   font-weight: 700;
 }
@@ -490,7 +550,7 @@ button {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #1e3a8a;
+  color: var(--accent-deep);
 }
 
 .pomodoro-time {
@@ -498,18 +558,19 @@ button {
   font-variant-numeric: tabular-nums;
   font-size: 16px;
   font-weight: 780;
-  color: #0f172a;
+  color: var(--ink);
 }
 
 .icon-button.active {
-  color: white;
-  background: #2563eb;
+  color: var(--on-accent);
+  background: var(--accent);
 }
 
 /* Schedule: view tabs, tag filter, item meta, footer */
 .schedule-controls {
   margin-top: 8px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -520,53 +581,78 @@ button {
   gap: 4px;
   padding: 3px;
   border-radius: 10px;
-  background: rgba(219, 234, 254, 0.6);
+  background: rgba(var(--chip-rgb), 0.6);
 }
 
 .view-tab {
   padding: 3px 10px;
   border-radius: 8px;
-  color: #1d4ed8;
+  color: var(--accent-strong);
   background: transparent;
   font-size: 12px;
   font-weight: 700;
 }
 
 .view-tab.active {
-  color: white;
-  background: #2563eb;
+  color: var(--on-accent);
+  background: var(--accent);
 }
 
+/* A row of its own, and wrapping within it: the pills are as wide as their
+   names and the user can add more of them. */
 .tag-filter {
+  flex: 1 0 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 5px;
 }
 
-.tag-dot {
-  width: 16px;
-  height: 16px;
-  padding: 0;
+/* Filter pills. The tag's own colour is an inline style — it is data, not
+   theme — so this only decides what "on" and "off" look like: filled when the
+   filter is active, outlined when it is not. */
+.tag-pill {
+  padding: 2px 9px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  border: 2px solid transparent;
-  background: #cbd5e1;
-  opacity: 0.55;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.tag-dot.all {
-  background: linear-gradient(135deg, #2563eb, #16a34a, #dc2626, #7c3aed);
+.tag-pill.active {
+  color: var(--on-accent);
 }
 
-.tag-dot.active {
-  opacity: 1;
-  border-color: rgba(15, 23, 42, 0.45);
+.tag-pill.all {
+  color: var(--ink-faint);
+  border-color: var(--ink-line);
 }
 
-.item-tag {
+.tag-pill.all.active {
+  color: var(--on-accent);
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* The tag as it reads everywhere else: the name, on the tag's colour. The dot
+   it replaces could only be told apart by remembering what each colour meant. */
+.tag-chip {
   flex: 0 0 auto;
-  width: 8px;
-  align-self: stretch;
+  padding: 1px 7px;
   border-radius: 999px;
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.tag-color {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 22px;
+  padding: 1px;
 }
 
 .item-repeat {
@@ -574,7 +660,7 @@ button {
   align-items: center;
   gap: 2px;
   margin-left: 6px;
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .item-repeat svg {
@@ -583,26 +669,26 @@ button {
 
 .item-overdue {
   margin-left: 6px;
-  color: #dc2626;
+  color: var(--danger);
   font-weight: 700;
 }
 
 .schedule-item.overdue {
-  border-color: rgba(220, 38, 38, 0.4);
-  background: rgba(254, 226, 226, 0.5);
+  border-color: rgba(var(--danger-rgb), 0.4);
+  background: var(--danger-bg-soft);
 }
 
 .schedule-empty {
   margin: 16px 0;
   text-align: center;
-  color: #94a3b8;
+  color: var(--ink-ghost);
   font-size: 13px;
 }
 
 .schedule-footer {
   flex: 0 0 auto;
   padding-top: 8px;
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 11px;
   font-weight: 650;
   text-align: right;
@@ -636,13 +722,13 @@ button {
   box-sizing: border-box;
   padding: 6px;
   border-radius: 12px;
-  border: 1px solid rgba(59, 130, 246, 0.28);
-  background: linear-gradient(160deg, rgba(233, 244, 255, 0.98), rgba(214, 233, 255, 0.95));
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.28);
+  background: linear-gradient(160deg, var(--card-top), var(--card-bottom));
   box-shadow:
-    0 6px 16px rgba(15, 23, 42, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    0 6px 16px rgba(var(--shadow-rgb), 0.3),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.82);
   backdrop-filter: blur(18px) saturate(1.1);
-  color: #0f172a;
+  color: var(--ink);
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 13px;
   user-select: none;
@@ -650,7 +736,7 @@ button {
 
 .menu-header {
   padding: 5px 8px 3px;
-  color: #1e3a8a;
+  color: var(--accent-deep);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -665,7 +751,7 @@ button {
   padding: 6px 12px 6px 6px;
   border-radius: 8px;
   background: transparent;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -673,7 +759,7 @@ button {
 }
 
 .context-menu .menu-item:hover:not(.disabled) {
-  background: rgba(37, 99, 235, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
 }
 
 .context-menu .menu-item.disabled {
@@ -686,13 +772,13 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .menu-separator {
   height: 1px;
   margin: 4px 6px;
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(var(--accent-soft-rgb), 0.2);
 }
 
 /* The editing overlay pins to the panel it belongs to, so the panel has to be
@@ -707,7 +793,7 @@ button {
   align-items: center;
   gap: 6px;
   margin: 6px 0;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 12px;
   font-weight: 650;
 }
@@ -727,7 +813,7 @@ button {
 }
 
 .field-row small {
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 11px;
 }
 
@@ -740,10 +826,10 @@ button {
   width: auto;
   height: 28px;
   padding: 0 7px;
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #0f172a;
+  background: rgba(var(--surface-rgb), 0.72);
+  color: var(--ink);
   font: inherit;
   font-size: 12px;
   outline: none;
@@ -759,7 +845,7 @@ button {
   width: auto;
   height: auto;
   margin: 0;
-  accent-color: #2563eb;
+  accent-color: var(--accent);
 }
 
 .field-row input.grow,
@@ -780,32 +866,32 @@ button {
   height: 26px;
   padding: 0 10px;
   border-radius: 8px;
-  color: #1d4ed8;
-  background: rgba(219, 234, 254, 0.86);
+  color: var(--accent-strong);
+  background: rgba(var(--chip-rgb), 0.86);
   font-size: 12px;
   font-weight: 700;
 }
 
 .reminder-button:hover {
-  background: rgba(191, 219, 254, 0.96);
+  background: var(--chip);
 }
 
 .reminder-button.primary {
-  color: white;
-  background: #2563eb;
+  color: var(--on-accent);
+  background: var(--accent);
 }
 
 .reminder-button.primary:hover {
-  background: #1d4ed8;
+  background: var(--accent-strong);
 }
 
 .reminder-button.danger {
-  color: #b91c1c;
-  background: rgba(254, 226, 226, 0.9);
+  color: var(--danger-strong);
+  background: var(--danger-bg);
 }
 
 .reminder-button.danger:hover {
-  background: rgba(254, 202, 202, 0.95);
+  background: var(--danger-edge);
 }
 
 /* ── Reminder popup window ──
@@ -823,13 +909,13 @@ button {
   width: 340px;
   padding: 10px 12px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  background: linear-gradient(160deg, rgba(233, 244, 255, 0.98), rgba(211, 231, 255, 0.96));
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.3);
+  background: linear-gradient(160deg, var(--card-top), var(--card-bottom));
   box-shadow:
-    0 8px 22px rgba(15, 23, 42, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 8px 22px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
   backdrop-filter: blur(18px) saturate(1.1);
-  color: #0f172a;
+  color: var(--ink);
   user-select: none;
 }
 
@@ -854,23 +940,23 @@ button {
   0%,
   100% {
     box-shadow:
-      0 8px 22px rgba(15, 23, 42, 0.32),
-      0 0 0 1px rgba(37, 99, 235, 0.3);
+      0 8px 22px rgba(var(--shadow-rgb), 0.32),
+      0 0 0 1px rgba(var(--accent-rgb), 0.3);
   }
   50% {
     box-shadow:
-      0 8px 26px rgba(15, 23, 42, 0.38),
-      0 0 0 4px rgba(37, 99, 235, 0.45);
+      0 8px 26px rgba(var(--shadow-rgb), 0.38),
+      0 0 0 4px rgba(var(--accent-rgb), 0.45);
   }
 }
 
 @keyframes reminder-blink {
   0%,
   100% {
-    background: linear-gradient(160deg, rgba(233, 244, 255, 0.98), rgba(211, 231, 255, 0.96));
+    background: linear-gradient(160deg, var(--card-top), var(--card-bottom));
   }
   50% {
-    background: linear-gradient(160deg, rgba(254, 240, 199, 0.98), rgba(253, 224, 148, 0.96));
+    background: linear-gradient(160deg, var(--warn-bg), var(--warn-edge));
   }
 }
 
@@ -901,7 +987,7 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #1e3a8a;
+  color: var(--accent-deep);
   font-size: 12px;
   font-weight: 800;
 }
@@ -913,8 +999,8 @@ button {
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  color: white;
-  background: #dc2626;
+  color: var(--on-accent);
+  background: var(--danger);
   font-size: 11px;
 }
 
@@ -933,9 +1019,9 @@ button {
 
 .reminder-item {
   padding: 8px;
-  border: 1px solid rgba(96, 165, 250, 0.24);
+  border: 1px solid rgba(var(--accent-pale-rgb), 0.24);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(var(--surface-rgb), 0.6);
 }
 
 .reminder-item-head {
@@ -958,12 +1044,12 @@ button {
   align-items: center;
   gap: 6px;
   margin: 4px 0 8px;
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 11px;
 }
 
 .reminder-round {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -987,29 +1073,29 @@ button {
   flex-direction: column;
   padding: 4px;
   border-radius: 10px;
-  border: 1px solid rgba(59, 130, 246, 0.28);
-  background: rgba(240, 248, 255, 0.99);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.28);
+  background: var(--card-flat);
+  box-shadow: 0 6px 16px rgba(var(--shadow-rgb), 0.28);
 }
 
 .reminder-snooze-menu button {
   padding: 5px 12px;
   border-radius: 6px;
   background: transparent;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
 }
 
 .reminder-snooze-menu button:hover {
-  background: rgba(37, 99, 235, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
 }
 
 .reminder-more,
 .banner-more {
   margin-top: 6px;
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 11px;
   font-weight: 650;
   text-align: center;
@@ -1031,16 +1117,16 @@ button {
 
 .reminder-banner {
   padding: 8px;
-  border: 1px solid rgba(251, 146, 60, 0.5);
+  border: 1px solid rgba(var(--warn-ring-rgb), 0.5);
   border-radius: 12px;
-  background: rgba(255, 247, 237, 0.92);
+  background: var(--warn-wash);
 }
 
 .banner-head {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #b45309;
+  color: var(--warn);
   font-size: 13px;
   font-weight: 780;
 }
@@ -1054,7 +1140,7 @@ button {
   align-items: center;
   gap: 6px;
   margin: 3px 0 7px;
-  color: #78716c;
+  color: var(--neutral);
   font-size: 11px;
 }
 
@@ -1071,7 +1157,7 @@ button {
 }
 
 .schedule-item .item-body:hover h2 {
-  color: #1d4ed8;
+  color: var(--accent-strong);
 }
 
 /* ── Editing overlay (schedule editor, delete confirmations) ── */
@@ -1083,7 +1169,7 @@ button {
   place-items: center;
   padding: 10px;
   border-radius: 18px;
-  background: rgba(15, 23, 42, 0.28);
+  background: rgba(var(--shadow-rgb), 0.28);
   backdrop-filter: blur(2px);
 }
 
@@ -1093,10 +1179,10 @@ button {
   overflow: auto;
   padding: 10px 12px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  background: linear-gradient(160deg, rgba(238, 247, 255, 0.99), rgba(219, 236, 255, 0.98));
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.34);
-  color: #0f172a;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.3);
+  background: linear-gradient(160deg, var(--card-top), var(--card-bottom));
+  box-shadow: 0 10px 26px rgba(var(--shadow-rgb), 0.34);
+  color: var(--ink);
 }
 
 .editor-card::-webkit-scrollbar {
@@ -1105,14 +1191,14 @@ button {
 
 .editor-card::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.42);
+  background: rgba(var(--accent-pale-rgb), 0.42);
 }
 
 .editor-header {
   display: flex;
   align-items: center;
   margin-bottom: 6px;
-  color: #1e3a8a;
+  color: var(--accent-deep);
   font-size: 13px;
   font-weight: 800;
 }
@@ -1126,8 +1212,8 @@ button {
 .editor-section {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(59, 130, 246, 0.2);
-  color: #1e3a8a;
+  border-top: 1px solid rgba(var(--accent-soft-rgb), 0.2);
+  color: var(--accent-deep);
   font-size: 12px;
   font-weight: 800;
 }
@@ -1139,6 +1225,10 @@ button {
   margin-top: 10px;
 }
 
+.confirm-card {
+  width: min(100%, max(240px, 72%));
+}
+
 .confirm-card p {
   margin: 4px 0;
   font-size: 12px;
@@ -1148,8 +1238,157 @@ button {
 .confirm-list {
   margin: 4px 0;
   padding-left: 18px;
-  color: #475569;
+  color: var(--ink-muted);
   font-size: 12px;
+}
+
+/* ── Plugin list ── */
+.plugin-card {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.24);
+  background: rgba(var(--surface-rgb), 0.5);
+}
+
+.plugin-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.plugin-name {
+  color: var(--accent-deep);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.plugin-version {
+  color: var(--ink-ghost);
+  font-size: 11px;
+}
+
+.plugin-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+/* Two columns: what the plugin is and what it offers on the left, the switches
+   the host provides on the right. Stacked, a window's name sat directly in front
+   of "show" and "pin" and read as one of the plugin's own settings. */
+.plugin-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.plugin-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.plugin-controls {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(var(--accent-soft-rgb), 0.2);
+  font-size: 12px;
+}
+
+.plugin-controls label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* A plugin that is switched off has no windows to show or pin. */
+.plugin-controls input:disabled + span {
+  opacity: 0.45;
+}
+
+.plugin-window-controls {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(var(--accent-soft-rgb), 0.14);
+}
+
+.plugin-control-name {
+  color: var(--ink-ghost);
+  font-size: 11px;
+}
+
+/* The settings a plugin declared. They sit under the description because they
+   are the plugin's own, unlike everything in .plugin-controls.
+   place they can be reached from. */
+.plugin-settings {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(var(--accent-soft-rgb), 0.2);
+}
+
+/* A plugin that did not load is the whole reason this list exists, so it is
+   marked rather than merely absent. */
+.plugin-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: 11px;
+}
+
+/* ── Template settings: a file list beside the markdown editor ── */
+.template-layout {
+  display: flex;
+  gap: 10px;
+  min-height: 320px;
+  margin-top: 8px;
+}
+
+.template-list {
+  flex: 0 0 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.template-item {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.template-item:hover {
+  background: rgba(var(--accent-pale-rgb), 0.28);
+}
+
+.template-item.active {
+  background: rgba(var(--accent-soft-rgb), 0.34);
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
+/* The editor is a flex child that has to be allowed to shrink, or a long line
+   in a template pushes the whole settings page sideways. */
+.template-editor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Settings window ── */
@@ -1170,10 +1409,10 @@ button {
   align-items: center;
   padding: 10px 12px 8px;
   border-radius: 18px 18px 0 0;
-  border: 1px solid rgba(59, 130, 246, 0.28);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.28);
   border-bottom: 0;
-  background: linear-gradient(160deg, rgba(219, 239, 255, 0.97), rgba(198, 228, 255, 0.94));
-  color: #1e3a8a;
+  background: linear-gradient(160deg, var(--card-top), var(--card-bottom));
+  color: var(--accent-deep);
   font-size: 13px;
   font-weight: 800;
   user-select: none;
@@ -1190,16 +1429,70 @@ button {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  gap: 12px;
   padding: 4px 6px 10px 12px;
   border-radius: 0 0 18px 18px;
-  border: 1px solid rgba(59, 130, 246, 0.28);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.28);
   border-top: 0;
-  background: linear-gradient(160deg, rgba(233, 244, 255, 0.97), rgba(211, 231, 255, 0.94));
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
+  background: linear-gradient(160deg, var(--card-top), var(--card-bottom));
+  box-shadow: 0 6px 18px rgba(var(--shadow-rgb), 0.3);
   backdrop-filter: blur(18px) saturate(1.1);
 }
 
+/* ── Settings: the navigation column ──
+   Built from settingsSections.ts, so nothing here knows which pages exist. */
+.settings-nav {
+  flex: 0 0 156px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px 6px 0;
+  border-right: 1px solid rgba(var(--accent-soft-rgb), 0.2);
+}
+
+.settings-nav-group {
+  margin-bottom: 6px;
+}
+
+.settings-nav-head {
+  padding: 0 8px;
+  margin: 8px 0 3px;
+  color: var(--ink-ghost);
+  font-size: 11px;
+  font-weight: 750;
+  user-select: none;
+}
+
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav-item.child {
+  padding-left: 16px;
+}
+
+.settings-nav-item:hover {
+  background: rgba(var(--accent-pale-rgb), 0.2);
+}
+
+.settings-nav-item.active {
+  background: rgba(var(--accent-pale-rgb), 0.42);
+  color: var(--accent-deep);
+}
+
 .settings-scroll {
+  flex: 1;
+  min-width: 0;
   height: 100%;
   overflow-y: auto;
   padding-right: 6px;
@@ -1211,12 +1504,12 @@ button {
 
 .settings-scroll::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.42);
+  background: rgba(var(--accent-pale-rgb), 0.42);
 }
 
 .settings-section {
   padding: 8px 0;
-  border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+  border-bottom: 1px solid rgba(var(--accent-soft-rgb), 0.16);
 }
 
 .settings-section:last-child {
@@ -1225,14 +1518,14 @@ button {
 
 .settings-section h2 {
   margin: 0 0 4px;
-  color: #1e3a8a;
+  color: var(--accent-deep);
   font-size: 12px;
   font-weight: 800;
 }
 
 .settings-subhead {
   margin: 8px 0 2px;
-  color: #475569;
+  color: var(--ink-muted);
   font-size: 11px;
   font-weight: 750;
 }
@@ -1243,13 +1536,13 @@ button {
   align-items: center;
   gap: 6px 14px;
   margin: 4px 0 8px;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 12px;
   font-weight: 650;
 }
 
 .grid-head {
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 11px;
   font-weight: 700;
   text-align: center;
@@ -1257,8 +1550,502 @@ button {
 
 .settings-about {
   margin: 0;
-  color: #64748b;
+  color: var(--ink-faint);
   font-size: 12px;
+}
+
+.settings-hint {
+  margin: 2px 0 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* The executable behind a resolved product name: the answer is the name, this
+   is the evidence for it. */
+.app-exe {
+  margin-left: 6px;
+  color: var(--ink-ghost);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ── Settings: shortcut rows ──
+   The warning wraps onto its own line, so the row is a wrapping flex rather
+   than a grid: a conflict must never squeeze the key it is complaining about. */
+.shortcut-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.shortcut-key {
+  min-width: 116px;
+  padding: 4px 10px;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.32);
+  border-radius: 8px;
+  background: rgba(var(--surface-rgb), 0.6);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.shortcut-key.recording {
+  border-color: var(--accent);
+  background: rgba(var(--accent-pale-rgb), 0.28);
+}
+
+.shortcut-key.static {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.shortcut-clear {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-ghost);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shortcut-clear:hover {
+  color: var(--danger);
+}
+
+.shortcut-warn {
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--warn);
+  font-size: 11px;
+}
+
+/* ── Settings: work schedule, salary, activity ──
+   Rows are laid out with an explicit column for the day name so the seven days
+   line up whatever their labels are; everything else flows. */
+.work-week {
+  margin: 4px 0 8px;
+}
+
+.work-day {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.work-day-name {
+  flex: 0 0 62px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.work-day-name input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.work-day input[type="time"],
+.work-day input[type="number"] {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
+  border-radius: 8px;
+  background: rgba(var(--surface-rgb), 0.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.work-day input:disabled {
+  color: var(--ink-faint);
+  opacity: 0.6;
+}
+
+.work-day small {
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.work-break {
+  width: 46px;
+}
+
+.work-dash {
+  color: var(--ink-faint);
+}
+
+.money-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.money-row input[type="text"],
+.money-row input[type="number"],
+.money-row select {
+  height: 26px;
+  min-width: 0;
+  padding: 0 7px;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
+  border-radius: 8px;
+  background: rgba(var(--surface-rgb), 0.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.money-row input[type="text"] {
+  flex: 1;
+}
+
+.money-amount {
+  width: 76px;
+}
+
+.money-row .grow {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 4px 0 6px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.metric-grid strong {
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── Desktop layer ──
+   Fills the monitor and sits at the bottom of the Z-order, so it reads as part
+   of the wallpaper. The icons are the real desktop's, redrawn — the layer covers
+   them, and handing them back is what makes that trade fair. */
+.desktop-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.desktop-empty {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  margin: 0;
+  color: var(--on-accent);
+  font-size: 12px;
+  /* The wallpaper underneath is unknown, so the text carries its own contrast. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.desktop-icon {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  background: transparent;
+  cursor: default;
+}
+
+.desktop-icon:hover {
+  background: rgba(var(--accent-soft-rgb), 0.28);
+}
+
+.desktop-icon img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.desktop-icon-fallback {
+  font-size: 34px;
+  line-height: 40px;
+}
+
+.desktop-label {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+  word-break: break-all;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Launcher ── */
+.launcher {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, var(--card-top), var(--card-bottom)),
+    var(--card-flat);
+  box-shadow:
+    0 12px 34px rgba(var(--shadow-rgb), 0.36),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.72);
+}
+
+.launcher-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(var(--surface-rgb), 0.8);
+  color: var(--ink-faint);
+}
+
+.launcher-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.launcher-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.launcher-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.launcher-item.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.launcher-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-source {
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.launcher-item.active .launcher-source {
+  color: var(--on-accent);
+  opacity: 0.8;
+}
+
+.launcher-empty {
+  margin: 12px 0 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ── Month calendar ──
+   Shared by the schedule widget's month view and the alternating-week anchor
+   picker in settings. Six rows always, so paging never changes the height. */
+.calendar {
+  padding: 4px 0 6px;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.cal-title {
+  flex: 1;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-weekday {
+  padding-bottom: 2px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cal-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 34px;
+  padding: 2px 0 6px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  line-height: 1.1;
+}
+
+.cal-cell:hover {
+  background: rgba(var(--surface-rgb), 0.6);
+}
+
+.cal-cell.outside {
+  opacity: 0.34;
+}
+
+.cal-cell.weekend .cal-day {
+  color: var(--accent-strong);
+}
+
+.cal-cell.today {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.cal-cell.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.cal-cell.selected .cal-day,
+.cal-cell.selected .cal-sub {
+  color: var(--on-accent);
+}
+
+.cal-day {
+  font-size: 12px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-sub {
+  color: var(--ink-faint);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.cal-sub.accent {
+  color: var(--accent-strong);
+}
+
+/* Corner badge for the official holiday table: a day off, or a Saturday that
+   the calendar turned back into a workday. */
+.cal-badge {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cal-badge.rest {
+  color: var(--success);
+}
+
+.cal-badge.work {
+  color: var(--warn);
+}
+
+/* The day's schedule marks. The bar hugs the left edge and the count sits
+   bottom right, because the top right corner belongs to the rest/work badge. */
+.cal-bar {
+  position: absolute;
+  left: 3px;
+  top: 5px;
+  bottom: 5px;
+  width: 3px;
+  border-radius: 999px;
+}
+
+.cal-count {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  min-width: 11px;
+  padding: 0 2px;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.85);
+  color: var(--on-accent);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 11px;
+}
+
+.anchor-value {
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Notebook: sidebar + editor ── */
@@ -1283,7 +2070,7 @@ button {
   right: 0;
   top: 46%;
   margin: 0;
-  color: #94a3b8;
+  color: var(--ink-ghost);
   font-size: 12px;
   text-align: center;
   pointer-events: none;
@@ -1303,7 +2090,7 @@ button {
 }
 
 .sidebar-resizer:hover {
-  background: rgba(59, 130, 246, 0.22);
+  background: rgba(var(--accent-soft-rgb), 0.22);
   border-radius: 999px;
 }
 
@@ -1313,9 +2100,9 @@ button {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(var(--surface-rgb), 0.5);
   overflow: hidden;
   user-select: none;
 }
@@ -1325,7 +2112,7 @@ button {
   align-items: center;
   gap: 4px;
   padding: 5px;
-  border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+  border-bottom: 1px solid rgba(var(--accent-soft-rgb), 0.16);
 }
 
 .sidebar-tools .icon-button {
@@ -1343,8 +2130,8 @@ button {
   padding: 0 6px;
   height: 24px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.75);
-  color: #64748b;
+  background: rgba(var(--surface-rgb), 0.75);
+  color: var(--ink-faint);
 }
 
 .sidebar-search input {
@@ -1360,13 +2147,13 @@ button {
 }
 
 .sidebar-group {
-  border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+  border-bottom: 1px solid rgba(var(--accent-soft-rgb), 0.16);
   padding-bottom: 4px;
 }
 
 .sidebar-head {
   padding: 5px 8px 2px;
-  color: #1e3a8a;
+  color: var(--accent-deep);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -1385,12 +2172,12 @@ button {
 
 .sidebar-tree::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.42);
+  background: rgba(var(--accent-pale-rgb), 0.42);
 }
 
 .sidebar-empty {
   margin: 12px 8px;
-  color: #94a3b8;
+  color: var(--ink-ghost);
   font-size: 11px;
   text-align: center;
   line-height: 1.5;
@@ -1402,23 +2189,23 @@ button {
   gap: 4px;
   height: 24px;
   padding-right: 6px;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 12px;
   font-weight: 620;
   cursor: pointer;
 }
 
 .tree-row:hover {
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
 }
 
 .tree-row.active {
-  color: #1d4ed8;
-  background: rgba(37, 99, 235, 0.18);
+  color: var(--accent-strong);
+  background: rgba(var(--accent-rgb), 0.18);
 }
 
 .tree-row.missing .tree-name {
-  color: #94a3b8;
+  color: var(--ink-ghost);
   text-decoration: line-through;
 }
 
@@ -1429,26 +2216,26 @@ button {
 }
 
 .tree-row.drop-into {
-  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.55);
+  box-shadow: inset 0 0 0 2px rgba(var(--accent-rgb), 0.55);
 }
 
 .tree-row.drop-before {
-  box-shadow: inset 0 2px 0 0 #2563eb;
+  box-shadow: inset 0 2px 0 0 var(--accent);
 }
 
 .tree-row.drop-after {
-  box-shadow: inset 0 -2px 0 0 #2563eb;
+  box-shadow: inset 0 -2px 0 0 var(--accent);
 }
 
 .sidebar-tree.drop-root {
-  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.3);
+  box-shadow: inset 0 0 0 2px rgba(var(--accent-rgb), 0.3);
 }
 
 .tree-icon {
   flex: 0 0 14px;
   display: inline-grid;
   place-items: center;
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .tree-name {
@@ -1472,12 +2259,41 @@ button {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #f59e0b;
+  background: var(--warn-accent);
+}
+
+/* "New file in this folder", revealed on hover. `visibility` rather than
+   `display` so the row's layout does not shift as the pointer crosses it, and
+   it still takes keyboard focus for anyone tabbing through the tree. */
+.tree-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.tree-row:hover .tree-add,
+.tree-add:focus-visible {
+  visibility: visible;
+}
+
+.tree-add:hover {
+  background: rgba(var(--accent-rgb), 0.18);
+  color: var(--accent);
 }
 
 .tree-warn {
   flex: 0 0 auto;
-  color: #dc2626;
+  color: var(--danger);
 }
 
 /* Portalled to <body>, so it is positioned against the window and escapes the
@@ -1489,16 +2305,16 @@ button {
   flex-direction: column;
   padding: 4px;
   border-radius: 10px;
-  border: 1px solid rgba(59, 130, 246, 0.28);
-  background: rgba(240, 248, 255, 0.99);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.28);
+  background: var(--card-flat);
+  box-shadow: 0 6px 16px rgba(var(--shadow-rgb), 0.28);
 }
 
 .sidebar-menu button {
   padding: 5px 12px;
   border-radius: 6px;
   background: transparent;
-  color: #1e293b;
+  color: var(--ink-soft);
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
@@ -1507,9 +2323,905 @@ button {
 }
 
 .sidebar-menu button:hover {
-  background: rgba(37, 99, 235, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
 }
 
 .sidebar-menu button.danger {
-  color: #b91c1c;
+  color: var(--danger-strong);
+}
+
+/* ── Theme picker ── */
+.theme-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.theme-swatch {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.28);
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.theme-swatch.active {
+  border-color: currentColor;
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3);
+}
+
+/* Tinted with the theme's own accent, so a swatch previews both of its colours. */
+.theme-swatch-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+}
+
+.theme-swatch.active .theme-swatch-dot {
+  opacity: 1;
+}
+
+/* ── Moo clock ── */
+.moo-panel {
+  padding: 12px 16px 14px;
+}
+
+.moo-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* The scrolling middle of the floating shape. Everything that can grow — the
+   face, the line, the counter, the meters, the feed tray — lives in here, so the
+   action row below it can never be pushed out of the window however small the
+   window is dragged or however much the tray adds. The alternative considered
+   was snapping the window to "all of it or none of it" while dragging, which
+   means the window moves under the cursor by itself. */
+.moo-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.moo-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.moo-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(var(--accent-pale-rgb), 0.42);
+}
+
+.moo-body > .moo-actions {
+  flex-shrink: 0;
+}
+
+.moo-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.moo-face {
+  flex: 0 0 auto;
+  font-size: 44px;
+  line-height: 1;
+}
+
+.moo-clock {
+  min-width: 0;
+}
+
+.moo-clock .time {
+  margin-top: 0;
+  font-size: 34px;
+}
+
+.moo-clock .date {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.moo-line {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: rgba(var(--surface-rgb), 0.5);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.moo-locked {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* ── Moo clock: the three metrics ──
+   Label and value are fixed columns so the bars all start and end together and
+   the numbers do not shuffle sideways as they change. */
+.moo-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.moo-meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.moo-meter-label {
+  flex: 0 0 40px;
+  color: var(--ink-faint);
+}
+
+.moo-meter-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(var(--surface-rgb), 0.7);
+  overflow: hidden;
+}
+
+.moo-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-soft), var(--accent));
+  transition: width 400ms ease;
+}
+
+.moo-meter-value {
+  flex: 0 0 34px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.moo-wasted {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  background: var(--danger-bg);
+  color: var(--danger-strong);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.moo-wasted strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Moo clock: the earnings counter ──
+   The amount is the loudest thing in the widget on purpose: a number that moves
+   is what makes the rest of it worth looking at. */
+.moo-earnings {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.moo-earned {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.moo-earned.compact {
+  align-items: center;
+}
+
+.moo-earned-label {
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.moo-earned-value {
+  margin-left: auto;
+  color: var(--accent-strong);
+  font-size: 22px;
+  font-weight: 800;
+  /* Tabular figures keep the digits from shuffling sideways as they roll. */
+  font-variant-numeric: tabular-nums;
+  transition: color 300ms ease;
+}
+
+.moo-earned.compact .moo-earned-value {
+  font-size: 16px;
+}
+
+/* Greyed while it is not accruing, so "the money stopped" is visible at a glance
+   rather than something you have to notice by watching. */
+.moo-earned-value.stalled {
+  color: var(--ink-faint);
+}
+
+.moo-earned-value.celebrate {
+  animation: moo-pop 1.6s ease;
+}
+
+@keyframes moo-pop {
+  0% {
+    transform: scale(1);
+  }
+  18% {
+    transform: scale(1.14);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+.moo-earned-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.moo-progress {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(var(--surface-rgb), 0.7);
+  overflow: hidden;
+}
+
+.moo-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.moo-wasted-inline {
+  margin-left: auto;
+  color: var(--danger-strong);
+  font-size: 11px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.moo-remark {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.moo-modifier {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(var(--chip-rgb), 0.86);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+/* ── Moo clock: feeding ──
+   The face is the drop target, so it has to say so while a task is over it. */
+.moo-face.open-wide {
+  transform: scale(1.24);
+  filter: drop-shadow(0 0 6px rgba(var(--accent-soft-rgb), 0.9));
+}
+
+.moo-face.chewing {
+  animation: moo-chew 620ms ease-in-out 3;
+}
+
+@keyframes moo-chew {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  30% {
+    transform: scale(0.92) rotate(-5deg);
+  }
+  65% {
+    transform: scale(1.06) rotate(4deg);
+  }
+}
+
+.moo-face {
+  transition:
+    transform 160ms ease,
+    filter 160ms ease;
+}
+
+.moo-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.moo-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 108px;
+  overflow-y: auto;
+}
+
+.moo-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 9px;
+  border-radius: 9px;
+  background: rgba(var(--surface-rgb), 0.6);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: grab;
+}
+
+.moo-feed-item:active {
+  cursor: grabbing;
+}
+
+.moo-feed-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Moo clock: the daily report ──
+   An overlay inside the widget rather than a seventh window; it covers the panel
+   completely so the numbers underneath cannot be misread as part of it. */
+.moo-report {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 14px;
+  border-radius: inherit;
+  background:
+    linear-gradient(160deg, var(--panel-top), var(--panel-bottom)),
+    var(--panel-base);
+}
+
+.moo-report-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.moo-report-title {
+  flex: 1;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.moo-report-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.moo-report-summary {
+  margin: 0 0 8px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: rgba(var(--surface-rgb), 0.5);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.moo-mood-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.moo-mood-slice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  background: rgba(var(--chip-rgb), 0.86);
+  font-size: 12px;
+}
+
+.moo-mood-slice:nth-child(even) {
+  background: rgba(var(--accent-soft-rgb), 0.34);
+}
+
+.moo-actions {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.moo-mood-label {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.moo-mode-toggle {
+  margin-left: auto;
+}
+
+/* ── Moo clock: dynamic island ──
+   The window is the capsule when closed and the full card when open, so the
+   island always fills it. Only the body below the capsule animates; the capsule
+   itself must not move, or it would slide out from under the pointer that opened
+   it (see island.ts).
+
+   The island paints its own background rather than inheriting the panel's, so
+   the open state and the rounding it drives sit on one element — reaching up to
+   the parent would need :has(), and a selector WebView2 does not know fails
+   silently. */
+.floating-panel.bare {
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  align-items: center;
+  /* A bare panel draws no chrome, so it must not occupy any either. The shell
+     composes `floating-panel <key>-panel bare`, and every widget's own class
+     carries padding (`.moo-panel` is 12/14) — leaving it on gave the card less
+     room than the window it was sized to fill, and `overflow: hidden` below
+     cropped exactly that much off its bottom edge. */
+  padding: 0;
+  /* The base panel clips so its content cannot escape its rounded corners. A
+     bare one has no corners to protect, and clipping instead cut its child's
+     drop shadow off flush along every edge — a hard-edged grey band that reads
+     as a box sitting behind the widget. The shadow now spills into the
+     transparent `--pad` margin, which is what that margin is for. */
+  overflow: visible;
+}
+
+/* The window is a fixed-width strip; the capsule sits centred in it and grows
+   into the card. Animating the capsule rather than the window is what makes this
+   smooth — see island.ts.
+
+   No backdrop-filter here, deliberately. Blurring what is behind the element has
+   to be recomputed on every frame that its size changes, which is exactly the
+   frames that must not be dropped. The background is opaque enough to stand on
+   its own instead. */
+.moo-island {
+  flex: 0 0 auto;
+  width: 180px;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(160deg, var(--panel-top), var(--panel-bottom)),
+    var(--panel-base);
+  /* Total reach — offset plus blur — has to stay inside `--pad` (16px), because
+     that transparent margin is all the room the window has around the card. A
+     shadow that reaches further is cut off by the window edge instead of fading,
+     and a cut-off shadow looks like a grey rectangle rather than a shadow. */
+  box-shadow:
+    0 4px 10px rgba(var(--shadow-rgb), 0.28),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.72);
+  /* Overshoot-free easing that leaves fast and lands slow, so the capsule reads
+     as one movement instead of a resize. */
+  transition:
+    width 260ms cubic-bezier(0.32, 0.72, 0, 1),
+    height 260ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* No height here: MooPanel measures the capsule and the body and sets it inline,
+   and sizes the window from the same number. A declared height had to equal a
+   constant in island.ts, and every row the card gained pushed the two apart —
+   the symptom being a card cropped along its bottom edge by the panel's
+   `overflow: hidden`. */
+.moo-island.open {
+  width: 420px;
+  border-radius: 24px;
+}
+
+.moo-capsule {
+  flex: 0 0 auto;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 6px;
+}
+
+.moo-capsule .moo-face {
+  font-size: 22px;
+}
+
+.moo-capsule-time {
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+/* Fixed *width*, natural height. The width has to be the open card's rather than
+   whatever the capsule currently is: a body that tracked the animating width
+   would rewrap its text on every frame, which costs layout each time and — while
+   the box is still narrow — wraps the line onto enough rows to push the buttons
+   past the clipped bottom edge. The height is left to the content and measured,
+   which is what the card and the window are then both sized from.
+
+   Only opacity animates: the capsule is already moving, and a second thing
+   sliding alongside reads as two animations fighting. The delay lets the box
+   finish most of its growth before the content appears. */
+.moo-island-body {
+  flex: 0 0 auto;
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 12px 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms ease;
+}
+
+/* Two lines is what the card has room for; a third would be clipped. */
+.moo-island .moo-line {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.moo-island.open .moo-island-body {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 150ms ease 110ms;
+}
+
+/* ── Developer mode ──
+   The debug window reuses the settings window's shell (same handle, same card)
+   and adds a tab strip between the two, which is why the strip carries its own
+   side borders: the handle drops its bottom border and the body its top one.
+
+   Every read-out is tabular-nums. Values here refresh once a second and a
+   proportional font would make the whole column twitch on each tick. */
+.dev-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px;
+  border-left: 1px solid rgba(var(--accent-soft-rgb), 0.28);
+  border-right: 1px solid rgba(var(--accent-soft-rgb), 0.28);
+  background: linear-gradient(160deg, var(--card-top), var(--card-bottom));
+}
+
+.dev-tab {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--ink-muted);
+  background: rgba(var(--surface-rgb), 0.5);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dev-tab.active {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+.dev-section {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(var(--accent-soft-rgb), 0.16);
+}
+
+.dev-section:last-child {
+  border-bottom: 0;
+}
+
+.dev-section h2 {
+  margin: 0 0 4px;
+  color: var(--accent-deep);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dev-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.dev-label {
+  color: var(--ink-muted);
+  font-weight: 650;
+}
+
+.dev-value {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-ok {
+  color: var(--success);
+}
+
+.dev-bad {
+  color: var(--danger);
+}
+
+.dev-warning {
+  margin: 4px 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--warn-edge);
+  color: var(--warn);
+  background: var(--warn-bg);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.dev-path {
+  margin: 2px 0 6px;
+  color: var(--ink-faint);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+/* The one indicator that answers "is the key sweep running": a dot that only
+   lights while the counter is still climbing. */
+.dev-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-faint);
+}
+
+.dev-pulse::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-line);
+}
+
+.dev-pulse.on {
+  color: var(--success);
+}
+
+.dev-pulse.on::before {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.dev-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 4px;
+}
+
+.dev-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: rgba(var(--surface-rgb), 0.5);
+}
+
+.dev-rule.matched {
+  background: rgba(var(--accent-rgb), 0.14);
+}
+
+.dev-rule-key {
+  min-width: 58px;
+  color: var(--accent-deep);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dev-cond {
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--danger-strong);
+  background: var(--danger-bg-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-cond.passed {
+  color: var(--success);
+  background: rgba(var(--chip-rgb), 0.8);
+}
+
+.dev-records {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.dev-record {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(var(--surface-rgb), 0.45);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-windows {
+  display: grid;
+  grid-template-columns: repeat(6, auto);
+  gap: 4px 10px;
+  margin: 4px 0;
+  overflow-x: auto;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-head {
+  color: var(--accent-deep);
+  font-weight: 800;
+}
+
+/* ── The privacy vault ──
+   The auth screen replaces the editor rather than floating over it, so it fills
+   the same box the notebook does. Every colour here is a token: an inlined
+   literal compiles and then silently stops following the theme. */
+.vault-auth {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+
+.vault-auth-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-deep);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.vault-auth-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* The two sentences the user is entitled to read before choosing a password:
+   the answer is a second key, and the delay only slows this window down. */
+.vault-auth-warning {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--warn-edge);
+  border-radius: 8px;
+  background: var(--warn-wash);
+  color: var(--warn);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.vault-auth-error {
+  margin: 0;
+  color: var(--danger-strong);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.vault-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.vault-field span {
+  flex: 0 0 88px;
+}
+
+.vault-field input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.22);
+  border-radius: 8px;
+  background: rgba(var(--surface-rgb), 0.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.vault-link {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.vault-auth-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.vault-group {
+  border-top: 1px solid rgba(var(--highlight-rgb), 0.5);
+}
+
+.vault-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vault-head-button {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }

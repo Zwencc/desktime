@@ -6,14 +6,17 @@
 // so every formatter is created lazily and dropped when the setting changes.
 
 import { readSettings, subscribeSettings } from './settings'
+import { currentLanguage, locale } from './locales'
 
-const ZONE_LABELS: Record<string, string> = {
-  'Asia/Shanghai': '北京时间',
+/** Read per call: a module constant would freeze the first language seen. */
+function zoneLabels(): Record<string, string> {
+  return { 'Asia/Shanghai': locale().timeZones.beijing }
 }
 
 const zoneListeners = new Set<() => void>()
 const formatterCache = new Map<string, Intl.DateTimeFormat>()
 let zoneCache: string | null = null
+let languageCache: string | null = null
 
 export function systemTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -30,9 +33,14 @@ export function appTimeZone(): string {
 subscribeSettings(() => {
   const next = readSettings()
   const zone = next.timeZoneMode === 'system' ? systemTimeZone() : next.timeZone
-  if (zone === zoneCache) return
+  // The language matters here for the same reason the zone does: the display
+  // formatters below are built for one and cached, so a switch has to drop them
+  // or the clock keeps naming the month and the weekday in the old language.
+  const language = currentLanguage()
+  if (zone === zoneCache && language === languageCache) return
 
   zoneCache = zone
+  languageCache = language
   formatterCache.clear()
   zoneListeners.forEach((listener) => listener())
 })
@@ -54,8 +62,13 @@ function cached(key: string, locale: string, options: Intl.DateTimeFormatOptions
   return formatter
 }
 
+// The three formatters below are read by a person, so they follow the app's
+// language. The ones under them are read by code — `zonedYmd` has to produce
+// `YYYY-MM-DD` and `zonedHourMinute` has to produce parsable parts — so those
+// keep their fixed locales, which is the whole reason the locale is a parameter.
+
 export function formatClock(date: Date) {
-  return cached('clock', 'zh-CN', {
+  return cached('clock', currentLanguage(), {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -64,7 +77,7 @@ export function formatClock(date: Date) {
 }
 
 export function formatDate(date: Date) {
-  return cached('date', 'zh-CN', {
+  return cached('date', currentLanguage(), {
     month: 'long',
     day: 'numeric',
     weekday: 'short',
@@ -72,7 +85,11 @@ export function formatDate(date: Date) {
 }
 
 export function formatHm(date: Date) {
-  return cached('hm', 'zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
+  return cached('hm', currentLanguage(), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 /** `YYYY-MM-DD` as read in the app time zone. */
@@ -148,6 +165,13 @@ export function isWeekend(ymd: string) {
   return day === 0 || day === 6
 }
 
+/** Moves a `YYYY-MM` prefix by whole months, carrying the year. */
+export function shiftMonth(prefix: string, delta: number) {
+  const [year, month] = prefix.split('-').map(Number)
+  const total = year * 12 + (month - 1) + delta
+  return `${String(Math.floor(total / 12)).padStart(4, '0')}-${String((total % 12) + 1).padStart(2, '0')}`
+}
+
 export function weekRange() {
   const start = today()
   const monday = addDays(start, -((weekdayOf(start) + 6) % 7))
@@ -156,13 +180,13 @@ export function weekRange() {
 
 /** Human label for the active zone, used as the clock widget's title. */
 export function timeZoneLabel() {
-  if (readSettings().timeZoneMode === 'system') return '本地时间'
+  if (readSettings().timeZoneMode === 'system') return locale().timeZones.local
 
   const zone = appTimeZone()
-  const known = ZONE_LABELS[zone]
+  const known = zoneLabels()[zone]
   if (known) return known
 
-  const parts = new Intl.DateTimeFormat('zh-CN', {
+  const parts = new Intl.DateTimeFormat(currentLanguage(), {
     timeZone: zone,
     timeZoneName: 'long',
   }).formatToParts(new Date())

@@ -1,9 +1,22 @@
 [package]
 name = "desktime"
-version = "0.1.0"
+version = "0.1.8"
 description = "A WebView2 desktop companion for Beijing time, quick notes, and schedules."
 authors = ["DeskTime"]
 edition = "2021"
+default-run = "desktime"
+
+[[bin]]
+name = "desktime"
+path = "src/main.rs"
+
+[[bin]]
+name = "DTCore"
+path = "src/bin/dtcore.rs"
+
+[[bin]]
+name = "DTSvc"
+path = "src/bin/dtsvc.rs"
 
 [lib]
 name = "desktime_lib"
@@ -13,6 +26,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# No `protocol-asset`: notes carry their pictures inside the container now, and
+# the webview is handed the bytes rather than a path. The webview having no way
+# to read a file off the disk at all is the point, not a side effect.
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
@@ -21,9 +37,73 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Notebook deletes go through the recycle bin so they stay recoverable.
 trash = "5"
+# The optional LLM line generator calls out from Rust, so the API key never has
+# to live in the webview. Uses the platform TLS stack rather than bundling one.
+reqwest = { version = "0.12", features = ["json"] }
+# `ResizeDirection`, for the resize grips the host draws around a plugin
+# widget. Tauri takes the type in `start_resize_dragging` but does not re-export
+# it, and this crate is already in the tree as one of tauri's own dependencies —
+# so naming it costs a line here and nothing to build.
+tauri-runtime = "2"
+tauri-plugin-global-shortcut = "2"
+# Start with Windows, and keep one instance: the autostart entry plus a launch
+# from the Start Menu is otherwise two DeskTimes fighting over one config file.
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
+# The desktop layer covers the real icons, so it hands them back as PNG data
+# URIs — raw pixels would be several megabytes of JSON for a full desktop.
+png = "0.17"
+base64 = "0.22"
+# v0.1.5 framework dependencies. Each one owns platform or format machinery;
+# business rules stay in DeskTime modules rather than being delegated to a crate.
+rusqlite = { version = "0.40", default-features = false, features = ["backup", "bundled"] }
+zip = { version = "8.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+aes-gcm = "0.11"
+pbkdf2 = "0.13"
+sha2 = "0.11"
+getrandom = "0.4"
+url = "2.5"
+# The one-off legacy note migrator has to answer "which pictures does this .md
+# actually use" before it moves the original to the recycle bin, and getting
+# that wrong loses an image. Reference-style images, escaped and percent-encoded
+# destinations and HTML <img> all count, which is a CommonMark parser rather
+# than a pattern — this is the one rustdoc and mdBook use. The renderer and the
+# SIMD scanner are switched off; only the event parser is used.
+pulldown-cmark = { version = "0.13", default-features = false }
+# Already in the tree underneath `url`; naming it here is what makes
+# `assets/my%20shot.png` resolve to the file it means.
+percent-encoding = "2"
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+# The service half of the background service. Talking to the SCM by hand means a
+# control-handler state machine and a status-reporting protocol that are entirely
+# boilerplate and entirely unforgiving; this is the crate everyone uses for it.
+windows-service = "0.8"
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Media_Audio",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  # Launching the agent into a logged-on user's session: query that session's
+  # token, build its environment block, and start the process as that user.
+  "Win32_System_Environment",
+  "Win32_System_RemoteDesktop",
+  "Win32_Security",
+  # The DTCore IPC endpoint: a named pipe whose DACL names this user and SYSTEM
+  # and nobody else, which is the whole of the access control on that channel.
+  "Win32_System_Pipes",
+  "Win32_System_IO",
+  "Win32_Security_Authorization",
+  "Win32_System_Power",
+  "Win32_System_Registry",
+  "Win32_System_StationsAndDesktops",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
 webview2-com = "0.38"
 
 # Release builds favor faster (re)compiles over binary micro-optimization — this

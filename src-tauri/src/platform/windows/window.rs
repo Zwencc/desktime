@@ -5,7 +5,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::error::BackendResult;
 
-pub fn set_window_to_bottom(window: &WebviewWindow) -> BackendResult<()> {
+// Generic over the runtime because the shortcut handler is: it sinks a window
+// straight from the hotkey rather than through a command.
+pub fn set_window_to_bottom<R: tauri::Runtime>(window: &WebviewWindow<R>) -> BackendResult<()> {
     let hwnd = window.hwnd()?;
 
     unsafe {

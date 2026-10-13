@@ -19,7 +19,7 @@ pub struct WindowsPlatformState {
 
 impl WindowsPlatformState {
     pub fn register_window<R: Runtime>(&self, window: &Window<R>) -> BackendResult<()> {
-        self.register_native_window(window.label(), window.hwnd()?)
+        self.register_native_window(window.label(), window.hwnd()?, window.is_visible()?)
     }
 
     pub fn apply_app_visibility<T, E>(
@@ -49,10 +49,21 @@ impl WindowsPlatformState {
         Ok(result)
     }
 
+    /// The policy's current belief for one window, or `None` when the window is
+    /// not registered at all — which is the expected answer for app-driven
+    /// windows and the interesting one for a widget.
+    pub fn app_visible(&self, label: &str) -> Option<bool> {
+        let windows = self.windows.lock().ok()?;
+        windows
+            .get(label)
+            .map(|window| window.visibility.app_visible())
+    }
+
     fn register_native_window(
         &self,
         label: &str,
         hwnd: windows::Win32::Foundation::HWND,
+        visible: bool,
     ) -> BackendResult<()> {
         let mut windows = self
             .windows
@@ -67,7 +78,7 @@ impl WindowsPlatformState {
             return Ok(());
         }
 
-        let visibility = Arc::new(VisibilityPolicy::default());
+        let visibility = Arc::new(VisibilityPolicy::new(visible));
         let handler_visibility = Arc::clone(&visibility);
         let router = MessageRouter::default()
             .with_handler(move |message| handler_visibility.handle_message(message));

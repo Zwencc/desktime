@@ -16,14 +16,21 @@ pub struct VisibilityPolicy {
 
 impl Default for VisibilityPolicy {
     fn default() -> Self {
-        Self {
-            app_visible: AtomicBool::new(true),
-            closing: AtomicBool::new(false),
-        }
+        Self::new(true)
     }
 }
 
 impl VisibilityPolicy {
+    /// The policy has to start out agreeing with the window it guards. A widget
+    /// the user switched off is created with `visible: false`, and a policy that
+    /// assumed "visible" would strip the hide and let an unsolicited show through.
+    pub fn new(app_visible: bool) -> Self {
+        Self {
+            app_visible: AtomicBool::new(app_visible),
+            closing: AtomicBool::new(false),
+        }
+    }
+
     pub fn handle_message(&self, message: WindowMessage) -> MessageDisposition {
         match message.id {
             WM_CLOSE | WM_DESTROY => {
@@ -52,6 +59,12 @@ impl VisibilityPolicy {
 
     pub fn set_app_visible(&self, visible: bool) -> bool {
         self.app_visible.swap(visible, Ordering::AcqRel)
+    }
+
+    /// What the policy currently believes. Read by the developer-mode panel: a
+    /// widget that will not show is usually this flag disagreeing with the window.
+    pub fn app_visible(&self) -> bool {
+        self.app_visible.load(Ordering::Acquire)
     }
 
     fn should_reject_hide(&self) -> bool {
