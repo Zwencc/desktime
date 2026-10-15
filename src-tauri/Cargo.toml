@@ -1,6 +1,6 @@
 [package]
 name = "desktime"
-version = "0.1.8"
+version = "0.1.9"
 description = "A WebView2 desktop companion for Beijing time, quick notes, and schedules."
 authors = ["DeskTime"]
 edition = "2021"

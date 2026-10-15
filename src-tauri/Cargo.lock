@@ -825,7 +825,7 @@ dependencies = [
 
 [[package]]
 name = "desktime"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
